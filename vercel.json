@@ -1,0 +1,8 @@
+{
+  "cleanUrls": true,
+  "routes": [
+    { "src": "/detective", "dest": "/akash-detective-portfolio.html" },
+    { "src": "/project2", "dest": "/project2.html" },
+    { "src": "/project3", "dest": "/project3.html" }
+  ]
+}
