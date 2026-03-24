@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Akash — Interactive Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --ink:#0a0a0f;
+  --paper:#f5f0e8;
+  --accent:#e85d26;
+  --accent2:#2563eb;
+  --gold:#c9933a;
+  --muted:#8a8070;
+  --panel-bg:rgba(245,240,232,0.97);
+  --font-head:'Playfair Display',serif;
+  --font-mono:'Space Mono',monospace;
+  --font-body:'DM Sans',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0f;font-family:var(--font-body)}
+
+#canvas-container{position:fixed;inset:0;z-index:0}
+canvas{display:block;width:100%!important;height:100%!important}
+
+/* ── HUD ── */
+#hud{position:fixed;bottom:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:12px 24px;background:linear-gradient(transparent,rgba(10,10,15,0.85));pointer-events:none}
+#scene-label{font-family:var(--font-mono);font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:.15em;text-transform:uppercase}
+#progress-dots{display:flex;gap:8px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.2);transition:all .4s}
+.dot.active{background:var(--accent);transform:scale(1.4)}
+.dot.visited{background:rgba(255,255,255,0.5)}
+#hud-right{display:flex;gap:12px;pointer-events:all}
+.hud-btn{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);padding:6px 14px;border-radius:4px;cursor:pointer;transition:all .2s}
+.hud-btn:hover{background:rgba(255,255,255,0.15);color:#fff}
+
+/* ── Top bar ── */
+#topbar{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:linear-gradient(rgba(10,10,15,0.8),transparent)}
+#reporter-badge{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:.15em;display:flex;align-items:center;gap:8px}
+#reporter-badge::before{content:'●';animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+#mission-tag{font-family:var(--font-mono);font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:.08em}
+
+/* ── Notebook Panel ── */
+#notebook{position:fixed;right:-420px;top:0;bottom:0;width:380px;z-index:200;background:var(--panel-bg);border-left:1px solid rgba(0,0,0,0.12);transition:right .5s cubic-bezier(.77,0,.18,1);overflow-y:auto;padding:28px 24px}
+#notebook.open{right:0}
+#notebook-title{font-family:var(--font-head);font-size:22px;color:var(--ink);margin-bottom:4px}
+#notebook-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.12em;margin-bottom:24px}
+.nb-section{margin-bottom:20px}
+.nb-section-head{font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;color:var(--accent);text-transform:uppercase;border-bottom:1px solid rgba(0,0,0,0.08);padding-bottom:6px;margin-bottom:10px}
+.nb-entry{font-size:13px;color:var(--ink);line-height:1.6;padding:6px 0;border-bottom:1px dotted rgba(0,0,0,0.08)}
+.nb-entry:last-child{border-bottom:none}
+.nb-tag{display:inline-block;background:var(--ink);color:var(--paper);font-family:var(--font-mono);font-size:9px;padding:2px 7px;border-radius:2px;margin:2px}
+.nb-close{position:absolute;top:20px;right:20px;background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted)}
+
+/* ── Dialogue Bubble ── */
+#dialogue-box{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:150;max-width:520px;width:90%;background:rgba(10,10,15,0.92);border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:20px 24px;display:none;backdrop-filter:blur(12px)}
+#dialogue-speaker{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:.15em;margin-bottom:8px;text-transform:uppercase}
+#dialogue-text{font-family:var(--font-body);font-size:15px;color:rgba(255,255,255,0.88);line-height:1.65}
+#dialogue-next{font-family:var(--font-mono);font-size:10px;color:var(--accent);cursor:pointer;margin-top:14px;text-align:right;letter-spacing:.08em}
+#dialogue-next:hover{text-decoration:underline}
+
+/* ── Scene Overlay (intro / transitions) ── */
+#scene-overlay{position:fixed;inset:0;z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink);transition:opacity .8s}
+#scene-overlay.fade-out{opacity:0;pointer-events:none}
+#scene-overlay.hidden{display:none}
+.overlay-eyebrow{font-family:var(--font-mono);font-size:11px;color:var(--gold);letter-spacing:.2em;text-transform:uppercase;margin-bottom:16px}
+.overlay-title{font-family:var(--font-head);font-size:clamp(32px,6vw,64px);color:var(--paper);text-align:center;line-height:1.15;max-width:700px}
+.overlay-title span{color:var(--accent)}
+.overlay-body{font-family:var(--font-body);font-size:15px;color:rgba(255,255,255,0.5);max-width:480px;text-align:center;line-height:1.7;margin-top:16px}
+.overlay-actions{display:flex;gap:16px;margin-top:40px;flex-wrap:wrap;justify-content:center}
+.btn-primary{background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:12px;letter-spacing:.12em;padding:14px 32px;border:none;border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.btn-primary:hover{background:#cf4d1e;transform:translateY(-1px)}
+.btn-secondary{background:transparent;color:rgba(255,255,255,0.5);font-family:var(--font-mono);font-size:12px;letter-spacing:.12em;padding:14px 32px;border:1px solid rgba(255,255,255,0.2);border-radius:4px;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.btn-secondary:hover{border-color:rgba(255,255,255,0.5);color:#fff}
+
+/* ── Info Panel (projects/experience) ── */
+#info-panel{position:fixed;right:-500px;top:60px;bottom:60px;width:440px;z-index:200;background:var(--panel-bg);border:1px solid rgba(0,0,0,0.1);border-radius:16px 0 0 16px;transition:right .5s cubic-bezier(.77,0,.18,1);overflow-y:auto;padding:28px 24px}
+#info-panel.open{right:0}
+.panel-close{position:absolute;top:18px;right:18px;background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted);padding:4px}
+.panel-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.15em;color:var(--accent);text-transform:uppercase;margin-bottom:8px}
+.panel-title{font-family:var(--font-head);font-size:24px;color:var(--ink);margin-bottom:16px}
+.panel-body{font-size:14px;color:#333;line-height:1.7}
+.tech-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tech-tag{font-family:var(--font-mono);font-size:10px;background:var(--ink);color:var(--paper);padding:3px 9px;border-radius:3px}
+.exp-item{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.exp-role{font-family:var(--font-head);font-size:16px;color:var(--ink)}
+.exp-co{font-family:var(--font-mono);font-size:11px;color:var(--accent);margin:3px 0}
+.exp-date{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:8px}
+.exp-desc{font-size:13px;color:#555;line-height:1.6}
+.proj-card{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:10px;padding:16px;margin-bottom:12px}
+.proj-name{font-family:var(--font-head);font-size:17px;color:var(--ink);margin-bottom:4px}
+.proj-desc{font-size:13px;color:#555;line-height:1.6;margin-bottom:10px}
+.proj-link{font-family:var(--font-mono);font-size:11px;color:var(--accent2);text-decoration:none;letter-spacing:.05em}
+.proj-link:hover{text-decoration:underline}
+
+/* ── Scene transition wipe ── */
+#wipe{position:fixed;inset:0;z-index:250;background:var(--ink);transform:scaleX(0);transform-origin:left;transition:transform .5s cubic-bezier(.77,0,.18,1)}
+#wipe.wipe-in{transform:scaleX(1)}
+#wipe.wipe-out{transform:scaleX(0);transform-origin:right}
+
+/* ── Interaction prompt ── */
+#interact-prompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:120;pointer-events:none;opacity:0;transition:opacity .3s}
+#interact-prompt.show{opacity:1}
+.prompt-bubble{background:rgba(10,10,15,0.88);border:1px solid rgba(255,255,255,0.18);color:#fff;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;padding:8px 16px;border-radius:20px;text-align:center;white-space:nowrap}
+
+/* ── Contact scene ── */
+#contact-scene{position:fixed;inset:0;z-index:280;display:none;background:linear-gradient(160deg,#0a0a0f 0%,#1a1020 50%,#0a0a0f 100%);align-items:center;justify-content:center;flex-direction:column}
+#contact-scene.active{display:flex}
+.contact-title{font-family:var(--font-head);font-size:clamp(28px,5vw,52px);color:var(--paper);margin-bottom:8px;text-align:center}
+.contact-sub{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.12em;margin-bottom:48px;text-align:center}
+.contact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;max-width:680px;width:90%}
+.contact-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;cursor:pointer;transition:all .25s;text-decoration:none}
+.contact-card:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.25);transform:translateY(-2px)}
+.cc-label{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:.15em;margin-bottom:6px;text-transform:uppercase}
+.cc-value{font-size:15px;color:var(--paper)}
+.cc-icon{font-size:24px;margin-bottom:10px}
+.rooftop-quote{font-family:var(--font-head);font-size:clamp(14px,2.5vw,20px);color:rgba(255,255,255,0.35);max-width:600px;text-align:center;line-height:1.7;margin-bottom:48px;font-style:italic}
+
+/* ── Scene name flash ── */
+#scene-flash{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:240;pointer-events:none;opacity:0;transition:opacity .5s;text-align:center}
+#scene-flash.show{opacity:1}
+.flash-name{font-family:var(--font-head);font-size:clamp(24px,5vw,48px);color:var(--paper)}
+.flash-sub{font-family:var(--font-mono);font-size:11px;color:var(--muted);letter-spacing:.15em;margin-top:6px;text-transform:uppercase}
+
+/* ── Skill grid ── */
+.skill-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.skill-item{background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:8px;padding:10px 12px}
+.skill-name{font-family:var(--font-mono);font-size:11px;color:var(--ink);margin-bottom:4px}
+.skill-bar-bg{height:4px;background:rgba(0,0,0,0.08);border-radius:2px}
+.skill-bar{height:4px;background:var(--accent);border-radius:2px;transition:width 1s ease}
+
+/* ── Personality tags ── */
+.trait-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.trait{background:var(--ink);color:var(--paper);font-family:var(--font-mono);font-size:10px;padding:5px 11px;border-radius:3px;letter-spacing:.08em}
+
+/* ── Nav arrows (scene 1-3 hub) ── */
+#nav-arrows{position:fixed;bottom:90px;right:24px;z-index:120;display:flex;flex-direction:column;gap:8px}
+.nav-arrow-btn{background:rgba(10,10,15,0.85);border:1px solid rgba(255,255,255,0.15);color:#fff;font-family:var(--font-mono);font-size:10px;padding:8px 14px;border-radius:6px;cursor:pointer;letter-spacing:.08em;transition:all .2s;display:none}
+.nav-arrow-btn.visible{display:block}
+.nav-arrow-btn:hover{background:var(--accent);border-color:var(--accent)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.15);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- Three.js canvas -->
+<div id="canvas-container"><canvas id="main-canvas"></canvas></div>
+
+<!-- Wipe transition -->
+<div id="wipe"></div>
+
+<!-- Scene name flash -->
+<div id="scene-flash">
+  <div class="flash-name" id="flash-name"></div>
+  <div class="flash-sub" id="flash-sub"></div>
+</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <div id="reporter-badge">LIVE — REPORTER ON ASSIGNMENT</div>
+  <div id="mission-tag">MISSION: UNDERSTAND WHO IS AKASH</div>
+</div>
+
+<!-- Intro overlay -->
+<div id="scene-overlay">
+  <div class="overlay-eyebrow">Daily Chronicle — Breaking Assignment</div>
+  <div class="overlay-title">Who is <span>Akash</span>?<br/>Find out.</div>
+  <div class="overlay-body">You've been sent to investigate a developer. Talk to his family, friends, colleagues. Visit his favourite haunts. Piece together the story.</div>
+  <div class="overlay-actions">
+    <button class="btn-primary" onclick="startExperience()">Accept Assignment</button>
+    <button class="btn-secondary" onclick="skipToPortfolio()">Skip to Portfolio</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="scene-label">Newsroom</div>
+  <div id="progress-dots">
+    <div class="dot active" id="dot-0" title="Newsroom"></div>
+    <div class="dot" id="dot-1" title="Home"></div>
+    <div class="dot" id="dot-2" title="College"></div>
+    <div class="dot" id="dot-3" title="Office"></div>
+    <div class="dot" id="dot-4" title="Café"></div>
+    <div class="dot" id="dot-5" title="Rooftop"></div>
+  </div>
+  <div id="hud-right">
+    <button class="hud-btn" onclick="toggleNotebook()">📓 Notes</button>
+    <button class="hud-btn" id="sound-btn" onclick="toggleSound()">🔇 Sound</button>
+  </div>
+</div>
+
+<!-- Interaction prompt -->
+<div id="interact-prompt"><div class="prompt-bubble" id="prompt-text">[ E ] Talk</div></div>
+
+<!-- Dialogue box -->
+<div id="dialogue-box">
+  <div id="dialogue-speaker">Character</div>
+  <div id="dialogue-text">...</div>
+  <div id="dialogue-next" onclick="nextDialogue()">Next → </div>
+</div>
+
+<!-- Nav arrows for hub scenes -->
+<div id="nav-arrows">
+  <button class="nav-arrow-btn" id="btn-home" onclick="goToScene(1)">🏠 Visit Home</button>
+  <button class="nav-arrow-btn" id="btn-college" onclick="goToScene(2)">🎓 College</button>
+  <button class="nav-arrow-btn" id="btn-office" onclick="goToScene(3)">💼 Office</button>
+  <button class="nav-arrow-btn" id="btn-cafe" onclick="goToScene(4)">☕ Café</button>
+  <button class="nav-arrow-btn" id="btn-rooftop" onclick="goToScene(5)">🌆 Rooftop</button>
+</div>
+
+<!-- Reporter's Notebook -->
+<div id="notebook">
+  <button class="nb-close" onclick="toggleNotebook()">✕</button>
+  <div id="notebook-title">Reporter's Notebook</div>
+  <div id="notebook-sub">INVESTIGATION: AKASH — DEV</div>
+  <div class="nb-section">
+    <div class="nb-section-head">Personality</div>
+    <div id="nb-personality"><div style="font-size:12px;color:var(--muted);font-style:italic">Visit home to learn more…</div></div>
+  </div>
+  <div class="nb-section">
+    <div class="nb-section-head">Skills</div>
+    <div id="nb-skills"><div style="font-size:12px;color:var(--muted);font-style:italic">Visit college to learn more…</div></div>
+  </div>
+  <div class="nb-section">
+    <div class="nb-section-head">Experience</div>
+    <div id="nb-experience"><div style="font-size:12px;color:var(--muted);font-style:italic">Visit the office to learn more…</div></div>
+  </div>
+  <div class="nb-section">
+    <div class="nb-section-head">Projects</div>
+    <div id="nb-projects"><div style="font-size:12px;color:var(--muted);font-style:italic">Visit the café to learn more…</div></div>
+  </div>
+</div>
+
+<!-- Info panel (experience/projects detail) -->
+<div id="info-panel">
+  <button class="panel-close" onclick="closePanel()">✕</button>
+  <div id="panel-content"></div>
+</div>
+
+<!-- Contact / Rooftop scene -->
+<div id="contact-scene">
+  <div class="rooftop-quote">"I build things that are fast, useful,<br/>and a little bit beautiful."</div>
+  <div class="contact-title">Let's Talk.</div>
+  <div class="contact-sub">AKASH · FULL-STACK DEVELOPER</div>
+  <div class="contact-grid">
+    <a class="contact-card" href="mailto:akash@example.com">
+      <div class="cc-icon">✉️</div>
+      <div class="cc-label">Email</div>
+      <div class="cc-value">akash@example.com</div>
+    </a>
+    <a class="contact-card" href="#" onclick="alert('Opening LinkedIn…');return false">
+      <div class="cc-icon">🔗</div>
+      <div class="cc-label">LinkedIn</div>
+      <div class="cc-value">linkedin.com/in/akash</div>
+    </a>
+    <a class="contact-card" href="#" onclick="alert('Opening GitHub…');return false">
+      <div class="cc-icon">⌨️</div>
+      <div class="cc-label">GitHub</div>
+      <div class="cc-value">github.com/akash</div>
+    </a>
+    <a class="contact-card" href="#" onclick="alert('Opening Resume PDF…');return false">
+      <div class="cc-icon">📄</div>
+      <div class="cc-label">Resume</div>
+      <div class="cc-value">Download PDF</div>
+    </a>
+  </div>
+  <button class="btn-secondary" style="margin-top:40px" onclick="goToScene(0)">↩ Replay Story</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+const state = {
+  currentScene: -1,
+  visitedScenes: new Set(),
+  notebookOpen: false,
+  panelOpen: false,
+  dialogueActive: false,
+  dialogueQueue: [],
+  dialogueIdx: 0,
+  soundOn: false,
+  interactTarget: null,
+  mouse: {x:0,y:0},
+  keys: {},
+  playerPos: {x:0,z:0},
+  playerAngle: 0,
+  cameraLerp: {x:0,y:6,z:12},
+};
+
+const notebook = {
+  personality: [],
+  skills: [],
+  experience: [],
+  projects: []
+};
+
+/* ═══════════════════════════════════════════════════════════
+   THREE.JS SETUP
+═══════════════════════════════════════════════════════════ */
+const canvas = document.getElementById('main-canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene3d = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(0,6,12);
+
+window.addEventListener('resize',()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+/* ── Clock ── */
+const clock = new THREE.Clock();
+
+/* ── Raycaster ── */
+const raycaster = new THREE.Raycaster();
+const mouseNDC = new THREE.Vector2();
+
+/* ═══════════════════════════════════════════════════════════
+   SCENE DATA
+═══════════════════════════════════════════════════════════ */
+const SCENES = {
+  0: {name:'Newsroom', sub:'your assignment desk', bg:0x0a0a0f, fog:[0x0a0a0f,8,30], ambientColor:0x223355, ambientInt:0.4, lightColor:0xffd06e, lightInt:1.2},
+  1: {name:'Home', sub:'parents speak', bg:0x1a0f05, fog:[0x120a04,6,28], ambientColor:0x4a2a10, ambientInt:0.6, lightColor:0xffb347, lightInt:1.4},
+  2: {name:'College Courtyard', sub:'friends & skills', bg:0x071020, fog:[0x071020,8,32], ambientColor:0x102040, ambientInt:0.5, lightColor:0xa0c8ff, lightInt:1.2},
+  3: {name:'Open-plan Office', sub:'work experience', bg:0x080c14, fog:[0x080c14,8,30], ambientColor:0x203050, ambientInt:0.5, lightColor:0xc8d8ff, lightInt:1.3},
+  4: {name:'Café', sub:'projects on the wall', bg:0x0d0805, fog:[0x100905,6,26], ambientColor:0x3a200a, ambientInt:0.6, lightColor:0xffc87a, lightInt:1.5},
+  5: {name:'Rooftop', sub:'akash speaks', bg:0x050812, fog:[0x050812,10,40], ambientColor:0x101830, ambientInt:0.3, lightColor:0xff7040, lightInt:0.8},
+};
+
+const DIALOGUES = {
+  mata:[
+    {speaker:'Mata (Mom)', text:'"He used to re-read every homework assignment before submitting. Even as a child — always checking, always refining."', trait:'Detail-oriented'},
+    {speaker:'Mata (Mom)', text:'"He never quit anything once he started. Good or bad, easy or hard — he finishes what he begins."', trait:'Perseverant'},
+    {speaker:'Mata (Mom)', text:'"Very curious boy. Always asking *why* things work, not just *what* they do."', trait:'Intellectually curious'},
+  ],
+  papa:[
+    {speaker:'Papa (Dad)', text:'"Discipline. That\'s his biggest strength. He treats work like a craft — patient, methodical."', trait:'Disciplined'},
+    {speaker:'Papa (Dad)', text:'"He taught himself to code at 16 from YouTube tutorials. Never needed anyone to push him."', trait:'Self-taught / driven'},
+  ],
+  friend1:[
+    {speaker:'Ravi (Friend)', text:'"Bhai, he redesigned our entire hackathon UI at 2am and it actually won. React, Tailwind, done in 3 hours."', skill:'React, Tailwind, Rapid prototyping'},
+    {speaker:'Ravi (Friend)', text:'"He\'s the person in the group who\'s read the docs. Properly read them. Not just skimmed."', skill:'Technical depth'},
+  ],
+  friend2:[
+    {speaker:'Priya (Friend)', text:'"Ask him about systems design. You\'ll regret it, but you\'ll learn something."', skill:'Systems thinking, Backend architecture'},
+    {speaker:'Priya (Friend)', text:'"He\'s always the one who writes the README. Proper documentation, screenshots, everything."', skill:'Technical writing, Documentation'},
+  ],
+  manager:[
+    {speaker:'Vikram (Manager)', text:'"Akash took full ownership of our TypeScript migration — zero downtime, full team alignment. Shipped in 6 weeks."', exp:'Led TypeScript migration at scale'},
+    {speaker:'Vikram (Manager)', text:'"He never misses a sprint. And more importantly — he speaks up early when something\'s going to block the team."', exp:'Agile, proactive communicator'},
+  ],
+  colleague:[
+    {speaker:'Neha (Colleague)', text:'"His code reviews are the best. Specific, constructive, fast. Everyone learned from them."', exp:'Code quality, Mentorship'},
+    {speaker:'Neha (Colleague)', text:'"He built our internal design-system from scratch. 40+ components, zero bloat."', exp:'Design systems, Component architecture'},
+  ],
+  cafeowner:[
+    {speaker:'Kiran (Café Owner)', text:'"That one on the left? He built my entire ordering system. Two weeks. Still running, three years later."', proj:'Café POS & Ordering App'},
+    {speaker:'Kiran (Café Owner)', text:'"He showed me all the reviews — customers love it. Even works offline when the internet cuts out."', proj:'PWA, offline-first'},
+  ],
+};
+
+/* ═══════════════════════════════════════════════════════════
+   SCENE BUILDERS
+═══════════════════════════════════════════════════════════ */
+let sceneObjects = []; // meshes to clear on scene change
+let interactables = []; // {mesh, id, label}
+let animatedObjects = []; // {mesh, fn}
+
+function clearScene(){
+  sceneObjects.forEach(o=>scene3d.remove(o));
+  sceneObjects=[];
+  interactables=[];
+  animatedObjects=[];
+}
+
+function addToScene(obj){scene3d.add(obj);sceneObjects.push(obj);return obj}
+
+/* ── Materials ── */
+const MAT = {
+  floor:(c,r=0.8)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:0.05}),
+  wall:(c)=>new THREE.MeshStandardMaterial({color:c,roughness:0.9}),
+  glow:(c,i=1)=>new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:i,roughness:0.5}),
+  wood:()=>new THREE.MeshStandardMaterial({color:0x5c3a1e,roughness:0.85}),
+  metal:()=>new THREE.MeshStandardMaterial({color:0x8899aa,roughness:0.3,metalness:0.8}),
+};
+
+function box(w,h,d,mat,x=0,y=0,z=0){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(x,y,z);
+  m.castShadow=m.receiveShadow=true;
+  return m;
+}
+function cyl(rt,rb,h,seg,mat,x=0,y=0,z=0){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),mat);
+  m.position.set(x,y,z);
+  m.castShadow=true;
+  return m;
+}
+function sphere(r,mat,x=0,y=0,z=0){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(r,12,8),mat);
+  m.position.set(x,y,z);
+  m.castShadow=true;
+  return m;
+}
+
+/* ── Character helper ── */
+function makeCharacter(color, x, z, label, dialogueKey){
+  const g=new THREE.Group();
+  // body
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.4,1.2,8),new THREE.MeshStandardMaterial({color,roughness:0.8}));
+  body.position.y=0.6;body.castShadow=true;g.add(body);
+  // head
+  const head=sphere(0.3,new THREE.MeshStandardMaterial({color:0xf5c89a,roughness:0.7}),0,1.5,0);
+  g.add(head);
+  // eyes
+  [-0.11,0.11].forEach(ex=>{
+    const eye=sphere(0.05,new THREE.MeshStandardMaterial({color:0x222222}),ex,1.55,0.28);
+    g.add(eye);
+  });
+  // interaction marker
+  const markerGeo=new THREE.CylinderGeometry(0.03,0.03,0.5,6);
+  const markerMat=new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0xffcc00,emissiveIntensity:1.5});
+  const markerStick=new THREE.Mesh(markerGeo,markerMat);
+  markerStick.position.set(0,2.4,0);g.add(markerStick);
+  const markerBall=sphere(0.12,new THREE.MeshStandardMaterial({color:0xffcc00,emissive:0xffcc00,emissiveIntensity:2}),0,2.75,0);
+  g.add(markerBall);
+  g.position.set(x,0,z);
+  g.userData={dialogueKey, label, isCharacter:true};
+  g.castShadow=true;
+  addToScene(g);
+  interactables.push({mesh:g, id:dialogueKey, label});
+  // idle sway
+  animatedObjects.push({mesh:g, fn:(t)=>{
+    g.rotation.y=Math.sin(t*0.7+x)*0.08;
+    markerBall.position.y=2.75+Math.sin(t*3)*0.08;
+    markerStick.position.y=2.4+Math.sin(t*3)*0.04;
+  }});
+  return g;
+}
+
+/* ── Point light helper ── */
+function addPointLight(color,intensity,x,y,z,dist=8){
+  const l=new THREE.PointLight(color,intensity,dist);
+  l.position.set(x,y,z);
+  l.castShadow=true;
+  addToScene(l);
+  return l;
+}
+
+/* ── Interactable object helper ── */
+function addInteractableObj(mesh, label, panelId){
+  mesh.userData={isPanelTrigger:true, panelId, label};
+  interactables.push({mesh, id:panelId, label});
+  return mesh;
+}
+
+/* ─────────── SCENE 0: Newsroom ─────────── */
+function buildScene0(){
+  scene3d.background=new THREE.Color(0x0a0a0f);
+  scene3d.fog=new THREE.Fog(0x0a0a0f,8,30);
+  addToScene(new THREE.AmbientLight(0x223355,0.4));
+  const dl=new THREE.DirectionalLight(0xffd06e,1.2);
+  dl.position.set(3,8,2);dl.castShadow=true;addToScene(dl);
+
+  // floor
+  addToScene(box(30,0.2,30,MAT.floor(0x111118),0,-0.1,0));
+  // back wall
+  addToScene(box(20,6,0.3,MAT.wall(0x14141e),0,3,-8));
+  // side wall
+  addToScene(box(0.3,6,16,MAT.wall(0x14141e),-8,3,0));
+
+  // desk
+  addToScene(box(3,0.15,1.4,MAT.wood(),0,0.9,0));
+  addToScene(box(0.1,0.9,0.1,MAT.wood(),-1.4,0.45,-0.6));
+  addToScene(box(0.1,0.9,0.1,MAT.wood(), 1.4,0.45,-0.6));
+  addToScene(box(0.1,0.9,0.1,MAT.wood(),-1.4,0.45, 0.6));
+  addToScene(box(0.1,0.9,0.1,MAT.wood(), 1.4,0.45, 0.6));
+  // monitor
+  const monitor=box(1.4,0.9,0.08,MAT.glow(0x0033aa,0.3),0,1.6,0);addToScene(monitor);
+  const screen=box(1.3,0.8,0.01,MAT.glow(0x0044ff,0.8),0,1.6,0.05);addToScene(screen);
+  // news text glow
+  const newsBanner=box(1.2,0.15,0.01,MAT.glow(0xdd2211,1.5),0,1.25,0.06);addToScene(newsBanner);
+
+  // broadcast light
+  addPointLight(0xffcc44,2,0,4,2,12);
+  addPointLight(0x4466ff,0.5,-5,3,-5,10);
+
+  // tv on wall
+  addToScene(box(3,1.8,0.1,MAT.glow(0x001133,0.5),-3,3.5,-7.9));
+  addToScene(box(2.8,1.6,0.01,MAT.glow(0x0055ff,0.6),-3,3.5,-7.85));
+
+  // chair
+  addToScene(box(0.8,0.1,0.8,MAT.floor(0x223366),0,0.55,1));
+  addToScene(box(0.8,1.0,0.1,MAT.floor(0x223366),0,1.05,1.4));
+
+  // floating particles (dust motes)
+  const particleGeo=new THREE.BufferGeometry();
+  const pVerts=[];
+  for(let i=0;i<80;i++){
+    pVerts.push((Math.random()-0.5)*16,(Math.random()*4)+0.5,(Math.random()-0.5)*16);
+  }
+  particleGeo.setAttribute('position',new THREE.Float32BufferAttribute(pVerts,3));
+  const particles=new THREE.Points(particleGeo,new THREE.PointsMaterial({color:0xffd06e,size:0.04,transparent:true,opacity:0.4}));
+  addToScene(particles);
+  animatedObjects.push({mesh:particles, fn:(t)=>{
+    particles.rotation.y=t*0.02;
+    const pos=particles.geometry.attributes.position;
+    for(let i=0;i<pos.count;i++){
+      pos.setY(i, pos.getY(i)+Math.sin(t+i)*0.001);
+    }
+    pos.needsUpdate=true;
+  }});
+}
+
+/* ─────────── SCENE 1: Home ─────────── */
+function buildScene1(){
+  scene3d.background=new THREE.Color(0x1a0f05);
+  scene3d.fog=new THREE.Fog(0x120a04,6,28);
+  addToScene(new THREE.AmbientLight(0x4a2a10,0.6));
+  const dl=new THREE.DirectionalLight(0xffb347,1.4);dl.position.set(2,7,3);dl.castShadow=true;addToScene(dl);
+
+  // floor (carpet look)
+  addToScene(box(24,0.15,24,MAT.floor(0x3a2010),0,-0.075,0));
+  // walls
+  addToScene(box(20,5,0.3,MAT.wall(0x2a1a0a),0,2.5,-8));
+  addToScene(box(0.3,5,16,MAT.wall(0x2a1a0a),8,2.5,0));
+  addToScene(box(0.3,5,16,MAT.wall(0x2a1a0a),-8,2.5,0));
+
+  // sofa
+  addToScene(box(3.5,0.5,1.2,new THREE.MeshStandardMaterial({color:0x6b3a2a,roughness:0.9}),-1,0.25,-4));
+  addToScene(box(3.5,0.8,0.3,new THREE.MeshStandardMaterial({color:0x6b3a2a,roughness:0.9}),-1,0.55,-4.55));
+  // coffee table
+  addToScene(box(1.6,0.08,0.8,MAT.wood(),-1,0.55,-2.8));
+  addToScene(box(0.06,0.55,0.06,MAT.wood(),-1.7,0.275,-3.15));
+  addToScene(box(0.06,0.55,0.06,MAT.wood(),-0.3,0.275,-3.15));
+
+  // photo wall frames
+  for(let i=0;i<4;i++){
+    const frame=box(0.6,0.8,0.04,new THREE.MeshStandardMaterial({color:0x5a3a1a,roughness:0.7}),(i-1.5)*1.5,3.2,-7.8);
+    addToScene(frame);
+    const photo=box(0.5,0.7,0.01,new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.05+i*0.1,0.4,0.5),roughness:0.9}),(i-1.5)*1.5,3.2,-7.77);
+    addToScene(photo);
+  }
+
+  // warm lamp
+  addToScene(cyl(0.15,0.15,0.8,8,MAT.wood(),3.5,0.4,-6));
+  addToScene(cyl(0.4,0.3,0.3,12,new THREE.MeshStandardMaterial({color:0xffe8b0,emissive:0xffe8b0,emissiveIntensity:0.6}),3.5,0.95,-6));
+  addPointLight(0xffaa44,2.5,3.5,1.2,-6,8);
+  addPointLight(0xff8833,1,-3,2,-5,6);
+
+  // tv
+  addToScene(box(2.2,1.4,0.1,MAT.glow(0x001,0.2),4.5,1.5,-7.9));
+  addToScene(box(2,1.2,0.01,MAT.glow(0x0044bb,0.4),4.5,1.5,-7.85));
+
+  // plants
+  addToScene(cyl(0.2,0.25,0.4,8,new THREE.MeshStandardMaterial({color:0x6b3a1e}),5,0.2,-4));
+  addToScene(sphere(0.45,new THREE.MeshStandardMaterial({color:0x2d6a2d,roughness:0.9}),5,0.8,-4));
+
+  // characters
+  makeCharacter(0xc85c00,-2.5,0.5-4,'Talk to Mata','mata');
+  makeCharacter(0x8b4513,0.5,0.5-4,'Talk to Papa','papa');
+}
+
+/* ─────────── SCENE 2: College ─────────── */
+function buildScene2(){
+  scene3d.background=new THREE.Color(0x071020);
+  scene3d.fog=new THREE.Fog(0x071020,8,32);
+  addToScene(new THREE.AmbientLight(0x102040,0.5));
+  const dl=new THREE.DirectionalLight(0xa0c8ff,1.2);dl.position.set(-3,8,5);dl.castShadow=true;addToScene(dl);
+  addPointLight(0x4488ff,1,0,3,0,15);
+
+  // ground (tiles)
+  addToScene(box(28,0.15,28,MAT.floor(0x0e1825),0,-0.075,0));
+  // building wall
+  addToScene(box(22,8,0.3,MAT.wall(0x121e2e),0,4,-9));
+  addToScene(box(0.3,8,18,MAT.wall(0x121e2e),9,4,0));
+
+  // bench
+  addToScene(box(2.5,0.12,0.8,MAT.wood(),-3,0.55,-3));
+  addToScene(box(2.5,0.12,0.08,MAT.wood(),-3,0.95,-3.34));
+  for(let x of [-3.8,-1.8]){addToScene(box(0.08,0.6,0.7,MAT.wood(),x,0.3,-3))}
+
+  // laptop on bench
+  addToScene(box(0.7,0.04,0.5,MAT.floor(0x222222),-2.8,0.62,-2.9));
+  addToScene(box(0.65,0.45,0.02,MAT.glow(0x0044ff,0.5),-2.8,0.84,-3.12));
+
+  // whiteboard
+  const wb=box(2.4,1.5,0.06,MAT.floor(0xf0eeea),2,2,-8.9);addToScene(wb);
+  addToScene(box(2.45,1.55,0.04,MAT.wood(),2,2,-8.95));
+  // code on whiteboard
+  const wbScreen=box(2.2,1.3,0.01,MAT.glow(0x0033cc,0.3),2,2,-8.87);
+  addInteractableObj(wbScreen,'View Skills','skills');
+  addToScene(wbScreen);
+  interactables.push({mesh:wb,id:'skills',label:'View Skills →'});
+
+  // trees
+  [[5,0,-5],[7,0,-2],[-6,0,-7],[-5,0,-4]].forEach(([x,y,z])=>{
+    addToScene(cyl(0.12,0.18,1.5,6,MAT.wood(),x,0.75,z));
+    addToScene(sphere(0.8,new THREE.MeshStandardMaterial({color:0x1a5c1a,roughness:0.95}),x,2,z));
+  });
+
+  // string lights
+  for(let i=0;i<8;i++){
+    const bulb=sphere(0.08,new THREE.MeshStandardMaterial({color:0xffee99,emissive:0xffee99,emissiveIntensity:2}),(i-3.5)*1.5,3.5,i%2?-1:-2);
+    addToScene(bulb);
+    animatedObjects.push({mesh:bulb,fn:(t)=>{bulb.material.emissiveIntensity=1.5+Math.sin(t*2+i)*0.3}});
+  }
+  addPointLight(0xffee99,0.3,0,3.5,-1.5,12);
+
+  makeCharacter(0x3a6a9a,-2,0.5,-3,'Talk to Ravi','friend1');
+  makeCharacter(0x5a3a7a,1.5,0.5,-3,'Talk to Priya','friend2');
+}
+
+/* ─────────── SCENE 3: Office ─────────── */
+function buildScene3(){
+  scene3d.background=new THREE.Color(0x080c14);
+  scene3d.fog=new THREE.Fog(0x080c14,8,30);
+  addToScene(new THREE.AmbientLight(0x203050,0.5));
+  const dl=new THREE.DirectionalLight(0xc8d8ff,1.3);dl.position.set(0,8,-2);dl.castShadow=true;addToScene(dl);
+
+  addToScene(box(26,0.15,26,MAT.floor(0x0d1220),0,-0.075,0));
+  addToScene(box(22,5,0.3,MAT.wall(0x101828),0,2.5,-9));
+  addToScene(box(0.3,5,18,MAT.wall(0x101828),-9,2.5,0));
+
+  // ceiling lights
+  for(let xi=-1;xi<=1;xi++){
+    for(let zi=-1;zi<=1;zi++){
+      addToScene(box(1,0.05,0.4,MAT.glow(0xd0e8ff,0.8),xi*4,4.9,zi*3));
+      addPointLight(0xc8d8ff,0.6,xi*4,4.5,zi*3,6);
+    }
+  }
+
+  // standing desk
+  addToScene(box(3,0.08,1.4,MAT.floor(0xc8c8c8),0,1.1,0));
+  const deskLeg=()=>box(0.06,1.1,0.06,MAT.metal());
+  [[-1.4,0.55,-0.6],[1.4,0.55,-0.6],[-1.4,0.55,0.6],[1.4,0.55,0.6]].forEach(([x,y,z])=>{
+    const l=deskLeg();l.position.set(x,y,z);addToScene(l);
+  });
+  // monitors
+  [-0.7,0.7].forEach(x=>{
+    addToScene(box(1.1,0.7,0.05,MAT.floor(0x111111),x,1.6,0));
+    const screenMat=new THREE.MeshStandardMaterial({color:0x002244,emissive:0x002244,emissiveIntensity:0.5});
+    addToScene(box(1.0,0.62,0.01,screenMat,x,1.6,0.03));
+  });
+  // keyboard
+  addToScene(box(0.8,0.04,0.3,MAT.floor(0x222222),0.1,1.15,0.4));
+
+  // sticky notes
+  [[0.3,0xffdd44],[-0.5,0xff8844],[0.9,0x88ff44]].forEach(([x,c],i)=>{
+    addToScene(box(0.4,0.4,0.02,new THREE.MeshStandardMaterial({color:c,roughness:0.9}),x,1.7+i*0.05,-4.4+i*0.3));
+  });
+
+  // experience folder (interactable)
+  const folder=box(1.2,0.08,0.9,new THREE.MeshStandardMaterial({color:0x1a3a6a,roughness:0.8}),-1.5,1.15,0.2);
+  addInteractableObj(folder,'View Experience','experience');
+  addToScene(folder);
+
+  // bookshelf
+  addToScene(box(2.5,3,0.4,MAT.wood(),-7,1.5,-8.7));
+  for(let r=0;r<3;r++){
+    for(let c=0;c<5;c++){
+      const bkColor=new THREE.Color().setHSL(c*0.12,0.6,0.35+r*0.1);
+      addToScene(box(0.25,0.55,0.3,new THREE.MeshStandardMaterial({color:bkColor,roughness:0.9}),-8.1+c*0.5,0.55+r*0.75,-8.6));
+    }
+  }
+
+  makeCharacter(0x334466,2.5,0.5,0,'Talk to Vikram','manager');
+  makeCharacter(0x446655,4,0.5,-2,'Talk to Neha','colleague');
+}
+
+/* ─────────── SCENE 4: Café ─────────── */
+function buildScene4(){
+  scene3d.background=new THREE.Color(0x0d0805);
+  scene3d.fog=new THREE.Fog(0x100905,6,26);
+  addToScene(new THREE.AmbientLight(0x3a200a,0.6));
+  const dl=new THREE.DirectionalLight(0xffc87a,1.5);dl.position.set(1,7,2);dl.castShadow=true;addToScene(dl);
+
+  addToScene(box(22,0.15,22,MAT.floor(0x1a100a),0,-0.075,0));
+  addToScene(box(20,5,0.3,MAT.wall(0x1e1208),0,2.5,-8));
+  addToScene(box(0.3,5,16,MAT.wall(0x1e1208),7,2.5,0));
+
+  // counter
+  addToScene(box(5,1.1,1.0,MAT.wood(),0,0.55,-5));
+  addToScene(box(5,0.1,1.1,MAT.floor(0x888888),0,1.12,-5));
+  // coffee machine
+  addToScene(box(0.5,0.7,0.4,MAT.metal(),1.5,1.48,-5));
+  addToScene(box(0.15,0.15,0.15,MAT.glow(0xff6600,1),1.4,1.5,-4.8));
+  // cups
+  [[0,0],[0.6,0],[-0.5,0.1]].forEach(([dx,dz])=>{
+    addToScene(cyl(0.1,0.08,0.12,8,new THREE.MeshStandardMaterial({color:0xeeeedd,roughness:0.7}),-0.5+dx,1.18,-4.62+dz));
+  });
+
+  // warm lights overhead
+  addPointLight(0xff9933,2.5,0,3,-5,8);
+  addPointLight(0xffaa44,1.5,-3,3,-2,7);
+  addPointLight(0xff8822,1.5,3,2.5,0,7);
+
+  // café tables
+  [[-4,2],[3,1],[-3,-1],[3,-3]].forEach(([x,z])=>{
+    addToScene(cyl(0.4,0.4,0.05,12,MAT.wood(),x,0.78,z));
+    addToScene(cyl(0.04,0.04,0.8,6,MAT.wood(),x,0.4,z));
+  });
+
+  // project posters on wall
+  const projects=[
+    {name:'BrewPOS',color:0xc8440a,x:-5,y:2.8},
+    {name:'TaskFlow',color:0x0a6888,x:-2,y:2.8},
+    {name:'SnapDash',color:0x2a7a2a,x:1,y:2.8},
+    {name:'EduKit',color:0x884488,x:4,y:2.8},
+  ];
+  projects.forEach((p,i)=>{
+    const frame=box(1.8,1.4,0.04,MAT.wood(),p.x,p.y,-7.9);addToScene(frame);
+    const poster=box(1.6,1.2,0.02,new THREE.MeshStandardMaterial({color:p.color,roughness:0.8,emissive:new THREE.Color(p.color),emissiveIntensity:0.15}),p.x,p.y,-7.88);
+    addInteractableObj(poster,`View ${p.name}`,'proj_'+i);
+    addToScene(poster);
+    // spotlight on poster
+    addPointLight(0xffd0a0,0.8,p.x,3.5,-7,5);
+  });
+
+  makeCharacter(0xaa5500,0,0.5,-3,'Talk to Kiran','cafeowner');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SCENE TRANSITION
+═══════════════════════════════════════════════════════════ */
+async function goToScene(idx){
+  if(idx===5){
+    // rooftop = contact scene, no 3D
+    showContactScene();return;
+  }
+  state.currentScene=idx;
+  closePanel();
+  hideDialogue();
+
+  // wipe in
+  const wipe=document.getElementById('wipe');
+  wipe.style.transition='transform .5s cubic-bezier(.77,0,.18,1)';
+  wipe.classList.add('wipe-in');
+  await sleep(500);
+
+  clearScene();
+  const cfg=SCENES[idx];
+  scene3d.background=new THREE.Color(cfg.bg);
+  scene3d.fog=new THREE.Fog(...cfg.fog);
+
+  switch(idx){
+    case 0:buildScene0();state.playerPos={x:0,z:2};break;
+    case 1:buildScene1();state.playerPos={x:0,z:2};break;
+    case 2:buildScene2();state.playerPos={x:0,z:2};break;
+    case 3:buildScene3();state.playerPos={x:0,z:3};break;
+    case 4:buildScene4();state.playerPos={x:0,z:3};break;
+  }
+
+  camera.position.set(state.playerPos.x,6,state.playerPos.z+6);
+  state.cameraLerp={x:state.playerPos.x,y:6,z:state.playerPos.z+6};
+
+  updateHUD(idx);
+
+  // wipe out
+  wipe.style.transition='transform .5s cubic-bezier(.77,0,.18,1)';
+  wipe.classList.remove('wipe-in');
+  wipe.classList.add('wipe-out');
+  await sleep(50);
+  wipe.classList.remove('wipe-out');
+
+  // flash scene name
+  flashSceneName(cfg.name,cfg.sub);
+
+  state.visitedScenes.add(idx);
+  updateNavArrows(idx);
+}
+
+function flashSceneName(name,sub){
+  const el=document.getElementById('scene-flash');
+  document.getElementById('flash-name').textContent=name;
+  document.getElementById('flash-sub').textContent=sub;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+function updateHUD(idx){
+  document.getElementById('scene-label').textContent=SCENES[idx]?.name||'';
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+    d.classList.toggle('active',i===idx);
+    d.classList.toggle('visited',state.visitedScenes.has(i)&&i!==idx);
+  });
+}
+
+function updateNavArrows(idx){
+  document.getElementById('btn-home').classList.toggle('visible',idx>=1&&idx!==1);
+  document.getElementById('btn-college').classList.toggle('visible',idx>=1&&idx!==2);
+  document.getElementById('btn-office').classList.toggle('visible',idx>=1&&idx!==3);
+  document.getElementById('btn-cafe').classList.toggle('visible',
+    state.visitedScenes.has(1)||state.visitedScenes.has(2)||state.visitedScenes.has(3));
+  document.getElementById('btn-rooftop').classList.toggle('visible',
+    state.visitedScenes.has(4));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DIALOGUE SYSTEM
+═══════════════════════════════════════════════════════════ */
+function startDialogue(key){
+  const lines=DIALOGUES[key];
+  if(!lines)return;
+  state.dialogueQueue=lines;
+  state.dialogueIdx=0;
+  state.dialogueActive=true;
+  showDialogueLine(lines[0],key);
+  document.getElementById('dialogue-box').style.display='block';
+}
+
+function showDialogueLine(line,key){
+  document.getElementById('dialogue-speaker').textContent=line.speaker;
+  document.getElementById('dialogue-text').textContent=line.text;
+  const hasNext=state.dialogueIdx<state.dialogueQueue.length-1;
+  document.getElementById('dialogue-next').textContent=hasNext?'Next →':'Close ✕';
+}
+
+function nextDialogue(){
+  const lines=state.dialogueQueue;
+  const line=lines[state.dialogueIdx];
+  // record to notebook
+  if(line.trait) addToNotebook('personality',line.trait,line.speaker);
+  if(line.skill) addToNotebook('skills',line.skill,line.speaker);
+  if(line.exp)   addToNotebook('experience',line.exp,line.speaker);
+  if(line.proj)  addToNotebook('projects',line.proj,line.speaker);
+
+  state.dialogueIdx++;
+  if(state.dialogueIdx>=lines.length){
+    hideDialogue();
+    // after finishing all dialogues in scenes 1-3, check if cafe unlocks
+    checkCafeUnlock();
+  } else {
+    showDialogueLine(lines[state.dialogueIdx]);
+  }
+}
+
+function hideDialogue(){
+  document.getElementById('dialogue-box').style.display='none';
+  state.dialogueActive=false;
+  state.dialogueQueue=[];
+}
+
+function checkCafeUnlock(){
+  const talked=state.visitedScenes;
+  if([1,2,3].every(s=>talked.has(s))||state.visitedScenes.size>=2){
+    document.getElementById('btn-cafe').classList.add('visible');
+  }
+}
+
+function addToNotebook(section, text, source){
+  const list=notebook[section];
+  const key=text.toLowerCase();
+  if(list.some(e=>e.text.toLowerCase()===key))return;
+  list.push({text,source});
+  renderNotebook();
+}
+
+function renderNotebook(){
+  const sections={personality:'nb-personality',skills:'nb-skills',experience:'nb-experience',projects:'nb-projects'};
+  for(const [sec,elId] of Object.entries(sections)){
+    const el=document.getElementById(elId);
+    const items=notebook[sec];
+    if(items.length===0){
+      const labels={personality:'Visit home',skills:'Visit college',experience:'Visit the office',projects:'Visit the café'};
+      el.innerHTML=`<div style="font-size:12px;color:var(--muted);font-style:italic">${labels[sec]} to learn more…</div>`;
+    } else {
+      el.innerHTML=items.map(i=>`<div class="nb-entry"><span class="nb-tag">${i.text}</span><span style="font-size:11px;color:var(--muted);margin-left:6px">${i.source||''}</span></div>`).join('');
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INFO PANELS
+═══════════════════════════════════════════════════════════ */
+const PANEL_CONTENT = {
+  experience:`
+    <div class="panel-eyebrow">Work Experience</div>
+    <div class="panel-title">Where I've Built</div>
+    <div class="exp-item">
+      <div class="exp-role">Senior Frontend Developer</div>
+      <div class="exp-co">TechFlow Solutions</div>
+      <div class="exp-date">2022 — Present · Full-time</div>
+      <div class="exp-desc">Led migration of monolithic React app to micro-frontends. Reduced bundle size by 42%. Built internal design system (40+ components). Zero-downtime TypeScript migration across 3 teams.</div>
+    </div>
+    <div class="exp-item">
+      <div class="exp-role">Full-Stack Developer</div>
+      <div class="exp-co">Buildspace Labs</div>
+      <div class="exp-date">2020 — 2022 · Full-time</div>
+      <div class="exp-desc">Node.js + React SaaS platform. Shipped 8 features in 12 months. Integrated Stripe, Razorpay. Mentored 2 junior developers.</div>
+    </div>
+    <div class="exp-item">
+      <div class="exp-role">Frontend Engineer (Contract)</div>
+      <div class="exp-co">3 clients</div>
+      <div class="exp-date">2019 — 2020</div>
+      <div class="exp-desc">Landing pages, ecommerce frontends, admin dashboards. Fast turnaround, high client retention.</div>
+    </div>
+  `,
+  skills:`
+    <div class="panel-eyebrow">Skills</div>
+    <div class="panel-title">What I Build With</div>
+    <div class="skill-grid">
+      ${[['React / Next.js',92],['TypeScript',88],['Node.js',82],['Three.js / R3F',75],['System Design',78],['CSS / Animation',90],['PostgreSQL',72],['Docker / CI',70]].map(([n,v])=>`
+      <div class="skill-item">
+        <div class="skill-name">${n}</div>
+        <div class="skill-bar-bg"><div class="skill-bar" style="width:${v}%"></div></div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:16px">
+    <div class="panel-eyebrow" style="margin-bottom:10px">Personality Traits</div>
+    <div class="trait-list">
+      ${['Detail-oriented','Self-taught','Systematic','Team player','Fast learner','Documenter'].map(t=>`<div class="trait">${t}</div>`).join('')}
+    </div></div>
+  `,
+  proj_0:`
+    <div class="panel-eyebrow">Project 01</div>
+    <div class="panel-title">BrewPOS</div>
+    <div class="proj-card">
+      <div class="proj-name">Café Ordering & POS System</div>
+      <div class="proj-desc">Full-stack ordering system for Kiran's café. Handles dine-in, takeaway, and delivery. Works offline via PWA. Real-time order tracking for kitchen staff. 3 years in production with zero downtime.</div>
+      <div class="tech-tags"><span class="tech-tag">React</span><span class="tech-tag">Node.js</span><span class="tech-tag">SQLite</span><span class="tech-tag">PWA</span><span class="tech-tag">Socket.io</span></div>
+      <a class="proj-link" href="#" style="margin-top:10px;display:inline-block">→ View case study</a>
+    </div>
+  `,
+  proj_1:`
+    <div class="panel-eyebrow">Project 02</div>
+    <div class="panel-title">TaskFlow</div>
+    <div class="proj-card">
+      <div class="proj-name">Team Project Management Tool</div>
+      <div class="proj-desc">Notion + Linear inspired PM tool built for small dev teams. Real-time collaboration, Kanban boards, sprint planning. 1,200 active users, bootstrapped, no VC.</div>
+      <div class="tech-tags"><span class="tech-tag">Next.js</span><span class="tech-tag">Postgres</span><span class="tech-tag">tRPC</span><span class="tech-tag">Zustand</span><span class="tech-tag">Radix UI</span></div>
+      <a class="proj-link" href="#" style="margin-top:10px;display:inline-block">→ View live demo</a>
+    </div>
+  `,
+  proj_2:`
+    <div class="panel-eyebrow">Project 03</div>
+    <div class="panel-title">SnapDash</div>
+    <div class="proj-card">
+      <div class="proj-name">Analytics Dashboard Builder</div>
+      <div class="proj-desc">Drag-and-drop dashboard builder for non-technical teams. Connect to Google Sheets, Airtable, or CSV. Export to PDF. Used by 3 mid-size companies internally.</div>
+      <div class="tech-tags"><span class="tech-tag">React</span><span class="tech-tag">D3.js</span><span class="tech-tag">Vite</span><span class="tech-tag">Recharts</span></div>
+      <a class="proj-link" href="#" style="margin-top:10px;display:inline-block">→ GitHub repo</a>
+    </div>
+  `,
+  proj_3:`
+    <div class="panel-eyebrow">Project 04</div>
+    <div class="panel-title">EduKit</div>
+    <div class="proj-card">
+      <div class="proj-name">Interactive Learning Modules</div>
+      <div class="proj-desc">Micro-learning platform for coding bootcamps. Embeddable interactive exercises. Built for 2 bootcamps, used by 800+ students. Live code editor, progress tracking.</div>
+      <div class="tech-tags"><span class="tech-tag">React</span><span class="tech-tag">Monaco Editor</span><span class="tech-tag">Firebase</span><span class="tech-tag">TypeScript</span></div>
+      <a class="proj-link" href="#" style="margin-top:10px;display:inline-block">→ View project</a>
+    </div>
+  `,
+};
+
+function openPanel(id){
+  const content=PANEL_CONTENT[id];
+  if(!content)return;
+  document.getElementById('panel-content').innerHTML=content;
+  document.getElementById('info-panel').classList.add('open');
+  state.panelOpen=true;
+  // animate skill bars after open
+  setTimeout(()=>{
+    document.querySelectorAll('.skill-bar').forEach(b=>{
+      const w=b.style.width;b.style.width='0';
+      setTimeout(()=>b.style.width=w,50);
+    });
+  },100);
+  // add to notebook
+  if(id==='skills') addToNotebook('skills','React, TypeScript, Node.js, Three.js','Whiteboard');
+  if(id==='experience') addToNotebook('experience','TechFlow Solutions · Senior FE Dev','Office folder');
+  if(id.startsWith('proj_')) addToNotebook('projects',PANEL_CONTENT[id].match(/panel-title">(.*?)<\/div>/)?.[1]||id,'Café poster');
+}
+
+function closePanel(){
+  document.getElementById('info-panel').classList.remove('open');
+  state.panelOpen=false;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CONTACT SCENE
+═══════════════════════════════════════════════════════════ */
+function showContactScene(){
+  state.currentScene=5;
+  updateHUD(5);
+  document.getElementById('contact-scene').classList.add('active');
+  state.visitedScenes.add(5);
+  updateNavArrows(5);
+  flashSceneName('Rooftop','akash speaks');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PLAYER MOVEMENT
+═══════════════════════════════════════════════════════════ */
+const MOVE_SPEED=0.07;
+const BOUNDS=7;
+
+function updatePlayer(dt){
+  if(state.dialogueActive||state.panelOpen)return;
+  let moved=false;
+  if(state.keys['ArrowUp']||state.keys['w']||state.keys['W']){
+    state.playerPos.z-=MOVE_SPEED;moved=true;state.playerAngle=Math.PI;
+  }
+  if(state.keys['ArrowDown']||state.keys['s']||state.keys['S']){
+    state.playerPos.z+=MOVE_SPEED;moved=true;state.playerAngle=0;
+  }
+  if(state.keys['ArrowLeft']||state.keys['a']||state.keys['A']){
+    state.playerPos.x-=MOVE_SPEED;moved=true;state.playerAngle=-Math.PI/2;
+  }
+  if(state.keys['ArrowRight']||state.keys['d']||state.keys['D']){
+    state.playerPos.x+=MOVE_SPEED;moved=true;state.playerAngle=Math.PI/2;
+  }
+  state.playerPos.x=Math.max(-BOUNDS,Math.min(BOUNDS,state.playerPos.x));
+  state.playerPos.z=Math.max(-BOUNDS,Math.min(BOUNDS,state.playerPos.z));
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROXIMITY + INTERACTION CHECK
+═══════════════════════════════════════════════════════════ */
+const INTERACT_DIST=3.5;
+function checkProximity(){
+  let closest=null,minDist=Infinity;
+  for(const item of interactables){
+    const p=item.mesh.position||item.mesh.getWorldPosition(new THREE.Vector3());
+    const dx=p.x-state.playerPos.x,dz=p.z-state.playerPos.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    if(dist<INTERACT_DIST&&dist<minDist){minDist=dist;closest=item;}
+  }
+  state.interactTarget=closest;
+  const prompt=document.getElementById('interact-prompt');
+  if(closest){
+    document.getElementById('prompt-text').textContent=`[ E ] ${closest.label}`;
+    prompt.classList.add('show');
+  } else {
+    prompt.classList.remove('show');
+  }
+}
+
+function handleInteract(){
+  if(!state.interactTarget)return;
+  const target=state.interactTarget;
+  if(target.mesh.userData.isCharacter){
+    startDialogue(target.id);
+  } else if(target.mesh.userData.isPanelTrigger){
+    openPanel(target.id);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CAMERA
+═══════════════════════════════════════════════════════════ */
+function updateCamera(){
+  const targetX=state.playerPos.x;
+  const targetZ=state.playerPos.z+7;
+  const targetY=5.5;
+  state.cameraLerp.x+=(targetX-state.cameraLerp.x)*0.07;
+  state.cameraLerp.y+=(targetY-state.cameraLerp.y)*0.05;
+  state.cameraLerp.z+=(targetZ-state.cameraLerp.z)*0.07;
+  camera.position.set(state.cameraLerp.x,state.cameraLerp.y,state.cameraLerp.z);
+  camera.lookAt(state.playerPos.x,0.5,state.playerPos.z);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER LOOP
+═══════════════════════════════════════════════════════════ */
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  if(state.currentScene>=0&&state.currentScene<5){
+    updatePlayer();
+    checkProximity();
+    updateCamera();
+    animatedObjects.forEach(o=>o.fn(t));
+  }
+  renderer.render(scene3d,camera);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INPUT
+═══════════════════════════════════════════════════════════ */
+window.addEventListener('keydown',e=>{
+  state.keys[e.key]=true;
+  if(e.key==='e'||e.key==='E')handleInteract();
+  if(e.key==='Escape'){closePanel();hideDialogue();}
+});
+window.addEventListener('keyup',e=>{state.keys[e.key]=false;});
+
+// Touch / mobile move
+let touchStart=null;
+canvas.addEventListener('touchstart',e=>{touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};},{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  if(!touchStart)return;
+  const dx=e.touches[0].clientX-touchStart.x;
+  const dy=e.touches[0].clientY-touchStart.y;
+  state.playerPos.x+=dx*0.02;
+  state.playerPos.z+=dy*0.02;
+  touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY};
+},{passive:true});
+canvas.addEventListener('touchend',()=>{touchStart=null;});
+
+// Click to interact
+canvas.addEventListener('click',e=>{
+  if(state.dialogueActive){nextDialogue();return;}
+  mouseNDC.x=(e.clientX/window.innerWidth)*2-1;
+  mouseNDC.y=-(e.clientY/window.innerHeight)*2+1;
+  raycaster.setFromCamera(mouseNDC,camera);
+  const meshes=interactables.map(i=>i.mesh);
+  // flatten groups
+  const targets=[];
+  meshes.forEach(m=>{
+    if(m.isGroup){m.traverse(c=>{if(c.isMesh)targets.push({mesh:c,orig:m})});}
+    else targets.push({mesh:m,orig:m});
+  });
+  const hit=raycaster.intersectObjects(targets.map(t=>t.mesh));
+  if(hit.length>0){
+    const origMesh=targets.find(t=>t.mesh===hit[0].object)?.orig;
+    if(origMesh){
+      const item=interactables.find(i=>i.mesh===origMesh);
+      if(item){
+        state.interactTarget=item;
+        handleInteract();
+      }
+    }
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   UI CONTROLS
+═══════════════════════════════════════════════════════════ */
+function toggleNotebook(){
+  state.notebookOpen=!state.notebookOpen;
+  document.getElementById('notebook').classList.toggle('open',state.notebookOpen);
+}
+function toggleSound(){
+  state.soundOn=!state.soundOn;
+  document.getElementById('sound-btn').textContent=state.soundOn?'🔊 Sound':'🔇 Sound';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ENTRY POINTS
+═══════════════════════════════════════════════════════════ */
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+async function startExperience(){
+  const overlay=document.getElementById('scene-overlay');
+  overlay.classList.add('fade-out');
+  await sleep(800);
+  overlay.classList.add('hidden');
+  await goToScene(1);
+  updateNavArrows(1);
+}
+
+function skipToPortfolio(){
+  const overlay=document.getElementById('scene-overlay');
+  overlay.classList.add('fade-out');
+  setTimeout(()=>{
+    overlay.classList.add('hidden');
+    // show all info at once
+    openPanel('skills');
+    goToScene(1);
+    // pre-populate notebook with all data
+    [['personality','Detail-oriented',''],['personality','Disciplined',''],['personality','Self-taught',''],
+     ['skills','React, TypeScript, Node.js',''],['skills','System Design, Architecture',''],
+     ['experience','TechFlow Solutions · Senior FE Dev',''],['experience','Buildspace Labs · Full-Stack',''],
+     ['projects','BrewPOS — Café POS System',''],['projects','TaskFlow — PM Tool',''],
+    ].forEach(([s,t,src])=>addToNotebook(s,t,src));
+  },800);
+}
+
+/* ── Boot ── */
+animate();
+</script>
+</body>
+</html>
