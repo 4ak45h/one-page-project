@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Case #001 — The Missing Developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --paper: #f5f0e8;
+    --paper2: #ede8d8;
+    --amber: #c8822a;
+    --amber-light: #e8a84a;
+    --red: #c0392b;
+    --teal: #2a7a6a;
+    --blue: #2c5282;
+    --muted: #7a6e5a;
+    --border: rgba(26,18,8,0.15);
+    --shadow: rgba(26,18,8,0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0d0a06;
+    color: var(--ink);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ─── SCREEN MANAGEMENT ─── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+  .screen.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* ─── SKIP BUTTON (global) ─── */
+  #skip-btn {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    z-index: 9999;
+    background: transparent;
+    border: 1px solid rgba(200,130,42,0.5);
+    color: var(--amber);
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: none;
+  }
+  #skip-btn:hover { background: var(--amber); color: #0d0a06; }
+  #skip-btn.visible { display: block; }
+
+  /* ─── NOTEBOOK (global) ─── */
+  #notebook-btn {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 9999;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    width: 48px; height: 48px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 2px 8px var(--shadow);
+    font-size: 20px;
+    transition: transform 0.2s;
+  }
+  #notebook-btn:hover { transform: rotate(-3deg) scale(1.05); }
+  #notebook-btn.visible { display: flex; }
+  .nb-badge {
+    position: absolute;
+    top: -6px; right: -6px;
+    background: var(--red);
+    color: #fff;
+    font-size: 10px;
+    font-family: 'Courier Prime', monospace;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  /* ─── NOTEBOOK PANEL ─── */
+  #notebook-panel {
+    position: fixed;
+    left: -380px;
+    top: 0; bottom: 0;
+    width: 360px;
+    background: var(--paper);
+    z-index: 9998;
+    transition: left 0.4s cubic-bezier(0.16,1,0.3,1);
+    box-shadow: 4px 0 30px var(--shadow);
+    overflow-y: auto;
+    padding: 24px 20px 40px;
+    border-right: 3px solid var(--amber);
+  }
+  #notebook-panel.open { left: 0; }
+  .nb-header {
+    font-family: 'Special Elite', cursive;
+    font-size: 22px;
+    color: var(--ink);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .nb-clue {
+    background: var(--paper2);
+    border-left: 3px solid var(--amber);
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: 0 4px 4px 0;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform: translateX(-10px); } to { opacity:1; transform:translateX(0); } }
+  .nb-clue-cat {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .nb-clue-text {
+    font-size: 13px;
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .nb-empty {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 20px;
+    text-align: center;
+  }
+  .nb-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none; border: none;
+    font-size: 20px; cursor: pointer;
+    color: var(--muted);
+  }
+
+  /* ════════════════════════════
+     SCENE 0: AGENCY / INTRO
+  ════════════════════════════ */
+  #scene-intro {
+    background: #0d0a06;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .desk-scene {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Desk background */
+  .desk-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 80%, #2a1f0e 0%, #0d0a06 100%);
+  }
+
+  /* Ceiling light */
+  .ceiling-light {
+    position: absolute;
+    top: -40px; left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 60px;
+    background: var(--amber);
+    box-shadow: 0 0 0 1px rgba(200,130,42,0.3);
+  }
+  .ceiling-light::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 60px solid transparent;
+    border-right: 60px solid transparent;
+    border-top: 0;
+    filter: drop-shadow(0 0 60px rgba(200,130,42,0.6));
+    border-bottom: none;
+  }
+  .light-cone {
+    position: absolute;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    width: 700px; height: 500px;
+    background: radial-gradient(ellipse 50% 70% at 50% 0%, rgba(200,130,42,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Desk surface */
+  .desk-surface {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 55vh;
+    background: linear-gradient(180deg, #2a1e0e 0%, #1a1208 100%);
+    border-top: 3px solid #3d2a14;
+  }
+  .desk-texture {
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+      90deg, transparent, transparent 40px,
+      rgba(255,255,255,0.015) 40px, rgba(255,255,255,0.015) 41px
+    );
+  }
+
+  /* Folder */
+  .manila-folder {
+    position: absolute;
+    bottom: 28%;
+    left: 50%;
+    transform: translateX(-50%) rotate(-2deg);
+    width: 320px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: float-in 1s ease 0.5s both;
+  }
+  @keyframes float-in {
+    from { opacity:0; transform: translateX(-50%) rotate(-2deg) translateY(20px); }
+    to { opacity:1; transform: translateX(-50%) rotate(-2deg) translateY(0); }
+  }
+  .manila-folder:hover {
+    transform: translateX(-50%) rotate(0deg) translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+  }
+  .folder-body {
+    background: linear-gradient(135deg, #d4a84b, #c8922a, #b87820);
+    border-radius: 2px 8px 8px 2px;
+    padding: 20px 24px 28px;
+    position: relative;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .folder-tab {
+    position: absolute;
+    top: -16px; left: 16px;
+    width: 80px; height: 18px;
+    background: linear-gradient(135deg, #d4a84b, #c8922a);
+    border-radius: 4px 4px 0 0;
+  }
+  .folder-stamp {
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: rgba(26,18,8,0.6);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .folder-title {
+    font-family: 'Special Elite', cursive;
+    font-size: 18px;
+    color: var(--ink);
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .folder-subtitle {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: rgba(26,18,8,0.7);
+    line-height: 1.6;
+  }
+  .folder-photo {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 52px; height: 64px;
+    background: var(--paper);
+    border: 2px solid rgba(26,18,8,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+    transform: rotate(2deg);
+  }
+  .folder-redstamp {
+    font-family: 'Special Elite', cursive;
+    font-size: 13px;
+    color: var(--red);
+    border: 2px solid var(--red);
+    display: inline-block;
+    padding: 2px 8px;
+    transform: rotate(-8deg);
+    margin-top: 10px;
+    opacity: 0.85;
+  }
+
+  /* Folder click instruction */
+  .folder-hint {
+    position: absolute;
+    bottom: 16%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: rgba(200,130,42,0.7);
+    letter-spacing: 0.12em;
+    animation: pulse-hint 2s ease-in-out infinite;
+    white-space: nowrap;
+  }
+  @keyframes pulse-hint { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+  /* Map pin */
+  .desk-items {
+    position: absolute;
+    bottom: 30%;
+    right: 8%;
+    display: flex; flex-direction: column; gap: 6px;
+    animation: float-in 1s ease 0.8s both;
+  }
+  .desk-item-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: rgba(200,130,42,0.6);
+    letter-spacing: 0.1em;
+  }
+
+  /* ════════════════════════════
+     SCENE MAP (hub)
+  ════════════════════════════ */
+  #scene-map {
+    background: var(--paper);
+    background-image:
+      radial-gradient(circle at 20% 80%, rgba(200,130,42,0.08) 0%, transparent 50%),
+      url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a1208' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .map-header {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fade-up 0.6s ease both;
+  }
+  @keyframes fade-up { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .map-header h2 {
+    font-family: 'Special Elite', cursive;
+    font-size: 28px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .map-header p {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+
+  .map-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 180px);
+    grid-template-rows: repeat(2, 140px);
+    gap: 16px;
+    animation: fade-up 0.6s ease 0.15s both;
+  }
+
+  .map-pin {
+    background: var(--paper2);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+  }
+  .map-pin::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(200,130,42,0.05));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .map-pin:hover { border-color: var(--amber); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+  .map-pin:hover::before { opacity: 1; }
+  .map-pin.visited { border-color: var(--teal); }
+  .map-pin.visited::after {
+    content: '✓';
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 12px;
+    color: var(--teal);
+    font-weight: 700;
+  }
+  .pin-icon { font-size: 32px; margin-bottom: 8px; }
+  .pin-name {
+    font-family: 'Special Elite', cursive;
+    font-size: 13px;
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.3;
+  }
+  .pin-sub {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+  }
+  .pin-final {
+    grid-column: 2;
+    background: linear-gradient(135deg, #1a2a3a, #0d1825);
+    border-color: var(--blue);
+  }
+  .pin-final .pin-name { color: #e8f0f8; }
+  .pin-final .pin-sub { color: rgba(200,220,240,0.6); }
+  .pin-final:hover { border-color: #5b9bd5; box-shadow: 0 8px 30px rgba(44,82,130,0.3); }
+
+  /* ════════════════════════════
+     SCENE TEMPLATE
+  ════════════════════════════ */
+  .scene-wrapper {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Left: 3D-ish environment */
+  .env-panel {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Right: clue/dialogue panel */
+  .info-panel {
+    width: 360px;
+    background: var(--paper);
+    border-left: 3px solid var(--border);
+    overflow-y: auto;
+    padding: 28px 24px;
+    display: flex; flex-direction: column;
+    gap: 16px;
+  }
+
+  .scene-back {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: 4px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: none; padding: 0;
+    transition: color 0.2s;
+  }
+  .scene-back:hover { color: var(--amber); }
+
+  .scene-title-block { border-bottom: 1px solid var(--border); padding-bottom: 14px; }
+  .scene-eyebrow {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .scene-title-text {
+    font-family: 'Special Elite', cursive;
+    font-size: 24px;
+    color: var(--ink);
+  }
+
+  /* Dialogue / NPC speech */
+  .dialogue-box {
+    background: var(--paper2);
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    position: relative;
+  }
+  .dialogue-box::before {
+    content: '"';
+    font-family: 'Special Elite', cursive;
+    font-size: 48px;
+    color: var(--amber);
+    opacity: 0.3;
+    position: absolute;
+    top: -10px; left: 8px;
+    line-height: 1;
+  }
+  .dialogue-speaker {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .dialogue-text {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.7;
+    font-style: italic;
+  }
+
+  /* Clue card */
+  .clue-card {
+    background: linear-gradient(135deg, #fffdf5, var(--paper2));
+    border: 1.5px solid rgba(200,130,42,0.4);
+    border-radius: 4px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .clue-card::after {
+    content: '▸ INSPECT';
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    color: var(--amber);
+    position: absolute;
+    bottom: 10px; right: 12px;
+  }
+  .clue-card:hover { border-color: var(--amber); box-shadow: 0 4px 16px rgba(200,130,42,0.2); transform: translateY(-1px); }
+  .clue-card.collected {
+    border-color: var(--teal);
+    background: linear-gradient(135deg, #f0faf5, #e8f5ee);
+  }
+  .clue-card.collected::after { content: '✓ COLLECTED'; color: var(--teal); }
+  .clue-icon { font-size: 20px; margin-bottom: 6px; }
+  .clue-name {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .clue-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* Skill tags */
+  .skill-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .skill-tag {
+    background: rgba(44,82,130,0.1);
+    color: var(--blue);
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    border: 1px solid rgba(44,82,130,0.2);
+  }
+
+  /* ════════════════════════════
+     ENVIRONMENTS (SVG/CSS Art)
+  ════════════════════════════ */
+
+  /* HOME SCENE */
+  .env-home {
+    background: linear-gradient(180deg, #f5e8d0 0%, #e8d5b0 60%, #d4c09a 100%);
+    width: 100%; height: 100%;
+  }
+
+  /* CAMPUS SCENE */
+  .env-campus {
+    background: linear-gradient(180deg, #c8dff5 0%, #b5d0ee 40%, #8fbc45 40%, #6a9c2c 100%);
+    width: 100%; height: 100%;
+  }
+
+  /* CAFE SCENE */
+  .env-cafe {
+    background: linear-gradient(180deg, #2a1a08 0%, #3d2510 30%, #1a0f06 100%);
+    width: 100%; height: 100%;
+  }
+
+  /* OFFICE SCENE */
+  .env-office {
+    background: linear-gradient(180deg, #e8eef5 0%, #d5dfe8 60%, #c0ccd8 100%);
+    width: 100%; height: 100%;
+  }
+
+  /* ════════════════════════════
+     SCENE 5: FINAL REVEAL
+  ════════════════════════════ */
+  #scene-final {
+    background: #0d1520;
+    overflow: auto;
+  }
+
+  .final-inner {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 60px 24px 80px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .case-closed-stamp {
+    font-family: 'Special Elite', cursive;
+    font-size: 14px;
+    color: var(--teal);
+    border: 2px solid var(--teal);
+    padding: 6px 20px;
+    letter-spacing: 0.3em;
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: stamp-in 0.8s ease 0.3s forwards;
+    transform: rotate(-3deg);
+  }
+  @keyframes stamp-in { 
+    from { opacity:0; transform: rotate(-3deg) scale(1.3); }
+    to { opacity:1; transform: rotate(-3deg) scale(1); }
+  }
+
+  .final-letter {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    padding: 36px 40px;
+    max-width: 640px;
+    width: 100%;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    margin-bottom: 32px;
+    animation: fade-up 0.8s ease 0.6s both;
+  }
+  .letter-lines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      transparent, transparent 31px,
+      rgba(26,18,8,0.06) 31px, rgba(26,18,8,0.06) 32px
+    );
+    pointer-events: none;
+    margin-top: 40px;
+    border-radius: inherit;
+  }
+  .letter-date {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .letter-body {
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 2;
+    position: relative;
+    z-index: 1;
+  }
+  .letter-signature {
+    font-family: 'Special Elite', cursive;
+    font-size: 24px;
+    color: var(--ink);
+    margin-top: 20px;
+  }
+
+  /* Profile card */
+  .profile-card {
+    background: var(--paper);
+    border: 1.5px solid var(--border);
+    max-width: 640px;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    animation: fade-up 0.8s ease 0.9s both;
+    margin-bottom: 24px;
+  }
+  .profile-header {
+    background: linear-gradient(135deg, #1a2a3a, #0d1825);
+    padding: 28px 32px;
+    display: flex; align-items: center; gap: 20px;
+  }
+  .profile-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--amber), var(--amber-light));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    flex-shrink: 0;
+    border: 3px solid rgba(255,255,255,0.15);
+  }
+  .profile-name {
+    font-family: 'Special Elite', cursive;
+    font-size: 26px;
+    color: #e8f0f8;
+    margin-bottom: 4px;
+  }
+  .profile-role {
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    color: rgba(200,220,240,0.7);
+    letter-spacing: 0.08em;
+  }
+  .profile-status {
+    margin-left: auto;
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+    padding: 4px 10px;
+    letter-spacing: 0.15em;
+  }
+
+  .profile-body { padding: 24px 32px; }
+  .profile-section { margin-bottom: 24px; }
+  .profile-section-title {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--amber);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 12px;
+  }
+
+  .exp-item { margin-bottom: 12px; }
+  .exp-role {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--ink);
+  }
+  .exp-company {
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 2px 0;
+  }
+
+  .project-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .project-item {
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .project-name {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .project-tech {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .contact-links { display: flex; gap: 10px; flex-wrap: wrap; }
+  .contact-link {
+    background: var(--paper2);
+    border: 1.5px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 14px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+    text-decoration: none;
+  }
+  .contact-link:hover { border-color: var(--amber); color: var(--amber); }
+
+  /* ─── TRANSITIONS ─── */
+  .fade-overlay {
+    position: fixed; inset: 0; z-index: 9990;
+    background: #0d0a06;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .fade-overlay.fading { opacity: 1; pointer-events: all; }
+
+  /* ─── MODAL (clue inspect) ─── */
+  #clue-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9995;
+    background: rgba(13,10,6,0.85);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #clue-modal.open { opacity: 1; pointer-events: all; }
+  .modal-content {
+    background: var(--paper);
+    max-width: 480px; width: 90%;
+    border: 2px solid var(--amber);
+    padding: 32px 36px;
+    position: relative;
+    transform: scale(0.92);
+    transition: transform 0.3s;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  }
+  #clue-modal.open .modal-content { transform: scale(1); }
+  .modal-eyebrow {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .modal-title {
+    font-family: 'Special Elite', cursive;
+    font-size: 22px;
+    color: var(--ink);
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+  .modal-body {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.8;
+    margin-bottom: 20px;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: none; border: none;
+    font-family: 'Courier Prime', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer; letter-spacing: 0.1em;
+  }
+  .modal-close:hover { color: var(--red); }
+  .modal-add-btn {
+    background: var(--amber);
+    border: none; color: #0d0a06;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 10px 20px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    width: 100%;
+  }
+  .modal-add-btn:hover { background: var(--amber-light); }
+  .modal-add-btn.done { background: var(--teal); color: #fff; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 700px) {
+    .scene-wrapper { flex-direction: column; }
+    .env-panel { height: 35vh; flex: none; }
+    .info-panel { width: 100%; border-left: none; border-top: 3px solid var(--border); }
+    .map-grid { grid-template-columns: repeat(2, 160px); grid-template-rows: repeat(3, 120px); }
+    .pin-final { grid-column: 1 / -1; }
+    .project-grid { grid-template-columns: 1fr; }
+    .profile-status { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Global overlays -->
+<button id="skip-btn" onclick="skipToFinal()">SKIP INVESTIGATION →</button>
+<div id="notebook-btn" onclick="toggleNotebook()">
+  📒
+  <div class="nb-badge" id="nb-count">0</div>
+</div>
+
+<div id="notebook-panel">
+  <button class="nb-close" onclick="toggleNotebook()">✕</button>
+  <div class="nb-header">Investigation Notes</div>
+  <div id="nb-clues-list"><p class="nb-empty">No clues collected yet.<br>Go investigate.</p></div>
+</div>
+
+<div class="fade-overlay" id="fade-overlay"></div>
+
+<!-- Clue inspection modal -->
+<div id="clue-modal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal()">[ CLOSE ]</button>
+    <div class="modal-eyebrow" id="modal-cat">EVIDENCE</div>
+    <div class="modal-title" id="modal-title">—</div>
+    <div class="modal-body" id="modal-body">—</div>
+    <div id="modal-tags" style="margin-bottom:16px"></div>
+    <button class="modal-add-btn" id="modal-btn" onclick="addCurrentClue()">
+      + ADD TO NOTEBOOK
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN 0: INTRO / DESK
+══════════════════════════════════ -->
+<div id="scene-intro" class="screen active">
+  <div class="desk-scene">
+    <div class="desk-bg"></div>
+    <div class="light-cone"></div>
+    <div class="ceiling-light"></div>
+
+    <!-- Animated rain streaks (atmosphere) -->
+    <canvas id="rain-canvas" style="position:absolute;inset:0;pointer-events:none;opacity:0.15"></canvas>
+
+    <div class="desk-surface">
+      <div class="desk-texture"></div>
+
+      <div class="manila-folder" onclick="goToMap()" title="Open the case file">
+        <div class="folder-body">
+          <div class="folder-tab"></div>
+          <div class="folder-stamp">MISSING PERSON · CASE #001</div>
+          <div class="folder-photo">👨‍💻</div>
+          <div class="folder-title">Akash Kumar<br>Full-Stack Developer</div>
+          <div class="folder-subtitle">
+            Last seen: Building something ambitious<br>
+            Status: MISSING<br>
+            Location: Unknown
+          </div>
+          <div class="folder-redstamp">ACTIVE CASE</div>
+        </div>
+      </div>
+
+      <div class="desk-items">
+        <div class="desk-item-label">◆ YOUR ASSIGNMENT</div>
+      </div>
+    </div>
+
+    <div class="folder-hint">[ CLICK THE FOLDER TO BEGIN ]</div>
+
+    <!-- Intro title -->
+    <div style="position:absolute;top:8%;left:0;right:0;text-align:center;">
+      <div style="font-family:'Courier Prime',monospace;font-size:11px;letter-spacing:0.3em;color:rgba(200,130,42,0.5);margin-bottom:8px">
+        DETECTIVE AGENCY · CASE DIVISION
+      </div>
+      <div style="font-family:'Special Elite',cursive;font-size:36px;color:rgba(200,130,42,0.9);text-shadow:0 0 40px rgba(200,130,42,0.3)">
+        THE MISSING DEVELOPER
+      </div>
+      <div style="font-family:'Courier Prime',monospace;font-size:12px;color:rgba(200,130,42,0.4);margin-top:6px;letter-spacing:0.1em">
+        An interactive portfolio investigation
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCREEN: MAP / HUB
+══════════════════════════════════ -->
+<div id="scene-map" class="screen">
+  <div class="map-header">
+    <div style="font-family:'Courier Prime',monospace;font-size:10px;letter-spacing:0.2em;color:var(--amber);margin-bottom:6px">CASE #001 — INVESTIGATION MAP</div>
+    <h2>Where did Akash go?</h2>
+    <p>Visit each location to gather clues. Collect all to unlock the final reveal.</p>
+  </div>
+
+  <div class="map-grid">
+    <div class="map-pin" id="pin-home" onclick="goToScene('home')">
+      <div class="pin-icon">🏠</div>
+      <div class="pin-name">The Family Home</div>
+      <div class="pin-sub">Scene 01 · Background</div>
+    </div>
+    <div class="map-pin" id="pin-campus" onclick="goToScene('campus')">
+      <div class="pin-icon">🎓</div>
+      <div class="pin-name">University Campus</div>
+      <div class="pin-sub">Scene 02 · Education</div>
+    </div>
+    <div class="map-pin" id="pin-cafe" onclick="goToScene('cafe')">
+      <div class="pin-icon">☕</div>
+      <div class="pin-name">The Corner Café</div>
+      <div class="pin-sub">Scene 03 · Projects</div>
+    </div>
+    <div class="map-pin" id="pin-office" onclick="goToScene('office')">
+      <div class="pin-icon">💼</div>
+      <div class="pin-name">TechCorp Office</div>
+      <div class="pin-sub">Scene 04 · Experience</div>
+    </div>
+    <div class="map-pin pin-final" id="pin-final" onclick="goToFinal()">
+      <div class="pin-icon">🔍</div>
+      <div class="pin-name" style="color:#e8f0f8">Akash's Studio</div>
+      <div class="pin-sub">Final Reveal · Full Profile</div>
+    </div>
+  </div>
+
+  <div style="margin-top:28px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);text-align:center">
+    <span id="map-progress-text">0 of 4 locations investigated</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCENE: HOME
+══════════════════════════════════ -->
+<div id="scene-home" class="screen">
+  <div class="scene-wrapper">
+    <div class="env-panel">
+      <div class="env-home" style="position:relative;overflow:hidden">
+        <!-- Simple illustrated room -->
+        <svg viewBox="0 0 500 400" style="width:100%;height:100%;position:absolute;inset:0">
+          <!-- Wall -->
+          <rect x="0" y="0" width="500" height="280" fill="#f5e0c0"/>
+          <rect x="0" y="0" width="500" height="280" fill="url(#wallpaper)"/>
+          <defs>
+            <pattern id="wallpaper" width="40" height="40" patternUnits="userSpaceOnUse">
+              <circle cx="20" cy="20" r="1.5" fill="rgba(200,130,42,0.12)"/>
+            </pattern>
+          </defs>
+
+          <!-- Floor -->
+          <rect x="0" y="280" width="500" height="120" fill="#c4a06a"/>
+          <rect x="0" y="278" width="500" height="6" fill="#8a6030"/>
+
+          <!-- Window -->
+          <rect x="320" y="40" width="140" height="160" fill="#b8d8f0" rx="4"/>
+          <rect x="320" y="40" width="140" height="160" fill="none" stroke="#8a6030" stroke-width="6" rx="4"/>
+          <line x1="390" y1="40" x2="390" y2="200" stroke="#8a6030" stroke-width="4"/>
+          <line x1="320" y1="120" x2="460" y2="120" stroke="#8a6030" stroke-width="4"/>
+          <!-- Curtains -->
+          <path d="M315 30 Q330 80 320 160" fill="#c87050" opacity="0.7"/>
+          <path d="M465 30 Q450 80 460 160" fill="#c87050" opacity="0.7"/>
+
+          <!-- Bookshelf -->
+          <rect x="30" y="100" width="160" height="170" fill="#8a6030" rx="2"/>
+          <rect x="35" y="105" width="150" height="20" fill="#a07040"/>
+          <!-- Books -->
+          <rect x="38" y="108" width="16" height="15" fill="#e8442a"/>
+          <rect x="56" y="108" width="12" height="15" fill="#2a5ea8"/>
+          <rect x="70" y="108" width="18" height="15" fill="#3a8a40"/>
+          <rect x="90" y="108" width="14" height="15" fill="#c87818"/>
+          <rect x="106" y="108" width="10" height="15" fill="#8a3080"/>
+          <rect x="38" y="130" width="150" height="2" fill="#7a5020"/>
+          <rect x="38" y="132" width="14" height="13" fill="#d44830"/>
+          <rect x="54" y="132" width="18" height="13" fill="#1a5090"/>
+          <rect x="74" y="132" width="12" height="13" fill="#4a7830"/>
+
+          <!-- Family photo on wall -->
+          <rect x="180" y="60" width="100" height="80" fill="#fffde8" stroke="#c8922a" stroke-width="4" rx="2"/>
+          <text x="230" y="97" text-anchor="middle" font-size="28">👨‍👩‍👦</text>
+          <text x="230" y="115" text-anchor="middle" font-size="9" fill="#8a6030" font-family="Georgia">The Kumars</text>
+
+          <!-- Degree certificate -->
+          <rect x="30" y="40" width="90" height="55" fill="#fffde8" stroke="#c8922a" stroke-width="3" rx="2"/>
+          <text x="75" y="62" text-anchor="middle" font-size="7" fill="#8a6030" font-family="Georgia">UNIVERSITY OF</text>
+          <text x="75" y="73" text-anchor="middle" font-size="7" fill="#8a6030" font-family="Georgia">TECHNOLOGY</text>
+          <text x="75" y="84" text-anchor="middle" font-size="6" fill="#a07040" font-family="Georgia">Akash Kumar — B.Tech</text>
+
+          <!-- Sofa -->
+          <rect x="60" y="290" width="260" height="60" fill="#9a7060" rx="8"/>
+          <rect x="60" y="280" width="260" height="20" fill="#b08070" rx="4"/>
+          <rect x="55" y="285" width="25" height="65" fill="#9a7060" rx="6"/>
+          <rect x="290" y="285" width="25" height="65" fill="#9a7060" rx="6"/>
+
+          <!-- NPC: Parent -->
+          <ellipse cx="380" cy="285" rx="18" ry="18" fill="#d4a06a"/>
+          <rect x="362" y="295" width="36" height="50" fill="#4a6090" rx="4"/>
+          <text x="380" y="289" text-anchor="middle" font-size="12">👩</text>
+          <text x="380" y="360" text-anchor="middle" font-size="10" fill="#7a5020" font-family="Georgia">Priya (Mother)</text>
+
+          <!-- Glow hints on clue objects -->
+          <rect x="175" y="55" width="110" height="90" fill="none" stroke="#c8922a" stroke-width="2" rx="3" opacity="0.4" class="hint-glow"/>
+          <rect x="25" y="35" width="100" height="65" fill="none" stroke="#c8922a" stroke-width="2" rx="3" opacity="0.4" class="hint-glow"/>
+        </svg>
+
+        <style>
+          @keyframes glow-pulse { 0%,100%{opacity:0.3} 50%{opacity:0.7} }
+          .hint-glow { animation: glow-pulse 2s ease-in-out infinite; }
+        </style>
+      </div>
+    </div>
+
+    <div class="info-panel">
+      <button class="scene-back" onclick="goToMap()">← BACK TO MAP</button>
+      <div class="scene-title-block">
+        <div class="scene-eyebrow">SCENE 01 · BACKGROUND</div>
+        <div class="scene-title-text">The Family Home</div>
+      </div>
+
+      <div class="dialogue-box">
+        <div class="dialogue-speaker">PRIYA KUMAR — Mother</div>
+        <div class="dialogue-text">"He was always curious, ever since he was small. His father brought home an old computer when Akash was 10... he took it apart the same evening. Didn't sleep until he'd put it back together. That's just how he is."</div>
+      </div>
+
+      <div class="clue-card" id="clue-background" onclick="openModal('background')">
+        <div class="clue-icon">📸</div>
+        <div class="clue-name">Family Photo Album</div>
+        <div class="clue-desc">A photo album reveals Akash grew up in Bangalore. Youngest of two siblings. Showed an early aptitude for mathematics and logic.</div>
+      </div>
+
+      <div class="clue-card" id="clue-degree" onclick="openModal('degree')">
+        <div class="clue-icon">🎓</div>
+        <div class="clue-name">Degree Certificate</div>
+        <div class="clue-desc">B.Tech in Computer Science — Class of 2022. First Division with Distinction. Specialization in Web Technologies.</div>
+      </div>
+
+      <div class="clue-card" id="clue-childhood" onclick="openModal('childhood')">
+        <div class="clue-icon">💻</div>
+        <div class="clue-name">Old Computer</div>
+        <div class="clue-desc">An ancient desktop in the corner. Sticky note reads: "First website: a fan page for Minecraft. Age 12."</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCENE: CAMPUS
+══════════════════════════════════ -->
+<div id="scene-campus" class="screen">
+  <div class="scene-wrapper">
+    <div class="env-panel">
+      <div class="env-campus" style="position:relative;overflow:hidden">
+        <svg viewBox="0 0 500 400" style="width:100%;height:100%;position:absolute;inset:0">
+          <!-- Sky -->
+          <rect x="0" y="0" width="500" height="200" fill="#c8dff5"/>
+          <!-- Clouds -->
+          <ellipse cx="120" cy="60" rx="60" ry="25" fill="white" opacity="0.8"/>
+          <ellipse cx="160" cy="55" rx="45" ry="22" fill="white" opacity="0.9"/>
+          <ellipse cx="350" cy="80" rx="50" ry="20" fill="white" opacity="0.7"/>
+          <!-- Ground -->
+          <rect x="0" y="200" width="500" height="200" fill="#7db840"/>
+          <rect x="0" y="196" width="500" height="8" fill="#5a9020"/>
+
+          <!-- Main building -->
+          <rect x="100" y="80" width="300" height="150" fill="#e8dcc0" stroke="#b0a080" stroke-width="2"/>
+          <!-- Columns -->
+          <rect x="120" y="120" width="16" height="110" fill="#d4c8a8"/>
+          <rect x="160" y="120" width="16" height="110" fill="#d4c8a8"/>
+          <rect x="200" y="120" width="16" height="110" fill="#d4c8a8"/>
+          <rect x="310" y="120" width="16" height="110" fill="#d4c8a8"/>
+          <rect x="350" y="120" width="16" height="110" fill="#d4c8a8"/>
+          <rect x="366" y="120" width="16" height="110" fill="#d4c8a8"/>
+
+          <!-- Pediment -->
+          <polygon points="100,80 400,80 250,30" fill="#e0d4b8" stroke="#b0a080" stroke-width="2"/>
+          <!-- Windows -->
+          <rect x="135" y="130" width="30" height="40" fill="#b8cce0" stroke="#b0a080" stroke-width="1.5"/>
+          <rect x="195" y="130" width="30" height="40" fill="#b8cce0" stroke="#b0a080" stroke-width="1.5"/>
+          <rect x="255" y="130" width="30" height="40" fill="#b8cce0" stroke="#b0a080" stroke-width="1.5"/>
+          <rect x="315" y="130" width="30" height="40" fill="#b8cce0" stroke="#b0a080" stroke-width="1.5"/>
+          <!-- Door -->
+          <rect x="215" y="185" width="70" height="45" fill="#8a6030" rx="2"/>
+          <!-- Sign -->
+          <rect x="155" y="88" width="190" height="22" fill="#c8922a" opacity="0.8" rx="2"/>
+          <text x="250" y="103" text-anchor="middle" font-size="9" fill="white" font-family="Georgia" font-weight="bold">DEPARTMENT OF COMPUTER SCIENCE</text>
+
+          <!-- Noticeboard -->
+          <rect x="30" y="210" width="100" height="130" fill="#8a6030" rx="4"/>
+          <rect x="36" y="216" width="88" height="118" fill="#c8a870"/>
+          <text x="80" y="232" text-anchor="middle" font-size="7" fill="#5a3010" font-family="Georgia" font-weight="bold">NOTICES</text>
+          <rect x="40" y="238" width="80" height="20" fill="white" opacity="0.9" rx="2"/>
+          <text x="80" y="249" text-anchor="middle" font-size="6" fill="#2a5ea8">HACKATHON 2021</text>
+          <text x="80" y="257" text-anchor="middle" font-size="6" fill="#2a5ea8">1st Prize Winner</text>
+          <rect x="40" y="264" width="80" height="20" fill="white" opacity="0.9" rx="2"/>
+          <text x="80" y="275" text-anchor="middle" font-size="6" fill="#5a3010">Open Source Club</text>
+          <text x="80" y="283" text-anchor="middle" font-size="6" fill="#5a3010">Lead Maintainer</text>
+          <rect x="40" y="290" width="80" height="28" fill="white" opacity="0.9" rx="2"/>
+          <text x="80" y="303" text-anchor="middle" font-size="6" fill="#3a8040">Final Year Project:</text>
+          <text x="80" y="311" text-anchor="middle" font-size="6" fill="#3a8040">AI-Powered Study Tool</text>
+
+          <!-- Professor NPC -->
+          <ellipse cx="410" cy="230" rx="20" ry="20" fill="#d4a06a"/>
+          <rect x="390" y="242" width="40" height="55" fill="#4a3080" rx="4"/>
+          <text x="410" y="234" text-anchor="middle" font-size="14">👨‍🏫</text>
+          <text x="410" y="315" text-anchor="middle" font-size="10" fill="#3a5010" font-family="Georgia">Prof. Sharma</text>
+
+          <!-- Glow on noticeboard -->
+          <rect x="28" y="208" width="104" height="134" fill="none" stroke="#c8922a" stroke-width="2" rx="5" opacity="0.4" class="hint-glow"/>
+        </svg>
+      </div>
+    </div>
+    <div class="info-panel">
+      <button class="scene-back" onclick="goToMap()">← BACK TO MAP</button>
+      <div class="scene-title-block">
+        <div class="scene-eyebrow">SCENE 02 · EDUCATION & SKILLS</div>
+        <div class="scene-title-text">University Campus</div>
+      </div>
+
+      <div class="dialogue-box">
+        <div class="dialogue-speaker">PROF. SHARMA — CS Dept.</div>
+        <div class="dialogue-text">"Akash was one of those rare students who didn't just do assignments — he always built something extra. His final year project was genuinely publishable. And he won our hackathon in second year. Twice."</div>
+      </div>
+
+      <div class="clue-card" id="clue-skills" onclick="openModal('skills')">
+        <div class="clue-icon">📋</div>
+        <div class="clue-name">Locker Contents</div>
+        <div class="clue-desc">A list of technologies written on sticky notes — self-taught and academic. React, Node.js, Python, PostgreSQL, Docker, AWS.</div>
+      </div>
+
+      <div class="clue-card" id="clue-hackathon" onclick="openModal('hackathon')">
+        <div class="clue-icon">🏆</div>
+        <div class="clue-name">Hackathon Certificate</div>
+        <div class="clue-desc">1st place at CodeFest 2021. Built a real-time collaboration tool in 24 hours. 200+ teams. Category: Best Developer Tool.</div>
+      </div>
+
+      <div class="clue-card" id="clue-thesis" onclick="openModal('thesis')">
+        <div class="clue-icon">📖</div>
+        <div class="clue-name">Final Year Thesis</div>
+        <div class="clue-desc">"AI-Assisted Learning Platforms: Personalisation at Scale." Grade: A+. Built a working prototype with 400+ test users.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCENE: CAFÉ
+══════════════════════════════════ -->
+<div id="scene-cafe" class="screen">
+  <div class="scene-wrapper">
+    <div class="env-panel">
+      <div class="env-cafe" style="position:relative;overflow:hidden">
+        <svg viewBox="0 0 500 400" style="width:100%;height:100%;position:absolute;inset:0">
+          <!-- Ceiling -->
+          <rect x="0" y="0" width="500" height="120" fill="#1a1008"/>
+          <!-- Pendant lights -->
+          <line x1="140" y1="0" x2="140" y2="70" stroke="#c8922a" stroke-width="1.5"/>
+          <circle cx="140" cy="75" r="12" fill="#c8922a"/>
+          <ellipse cx="140" cy="85" rx="25" ry="10" fill="rgba(200,130,42,0.15)"/>
+          <line x1="360" y1="0" x2="360" y2="70" stroke="#c8922a" stroke-width="1.5"/>
+          <circle cx="360" cy="75" r="12" fill="#c8922a"/>
+          <ellipse cx="360" cy="85" rx="25" ry="10" fill="rgba(200,130,42,0.15)"/>
+
+          <!-- Walls -->
+          <rect x="0" y="120" width="500" height="280" fill="#2a1808"/>
+          <!-- Brick texture -->
+          <g opacity="0.15">
+            <rect x="0" y="130" width="60" height="18" fill="none" stroke="#c8922a" stroke-width="0.5"/>
+            <rect x="65" y="130" width="60" height="18" fill="none" stroke="#c8922a" stroke-width="0.5"/>
+            <rect x="130" y="130" width="60" height="18" fill="none" stroke="#c8922a" stroke-width="0.5"/>
+          </g>
+
+          <!-- Chalkboard menu -->
+          <rect x="180" y="125" width="160" height="110" fill="#1a2a1a" rx="4" stroke="#6a5030" stroke-width="3"/>
+          <text x="260" y="148" text-anchor="middle" font-size="9" fill="#e8f0e8" font-family="Georgia">── TODAY'S SPECIAL ──</text>
+          <text x="260" y="165" text-anchor="middle" font-size="8" fill="#a8c8a0">Side Projects:</text>
+          <text x="260" y="178" text-anchor="middle" font-size="7" fill="#c8d8c8">DevTrack · EduMate · WeatherNow</text>
+          <text x="260" y="193" text-anchor="middle" font-size="8" fill="#a8c8a0">Stack of the Day:</text>
+          <text x="260" y="206" text-anchor="middle" font-size="7" fill="#c8d8c8">Next.js · Tailwind · Supabase</text>
+          <text x="260" y="222" text-anchor="middle" font-size="7" fill="#888" font-style="italic">ask about open source</text>
+
+          <!-- Table -->
+          <rect x="60" y="290" width="280" height="10" fill="#6a4020" rx="3"/>
+          <rect x="100" y="298" width="20" height="80" fill="#5a3010" rx="2"/>
+          <rect x="280" y="298" width="20" height="80" fill="#5a3010" rx="2"/>
+
+          <!-- Laptop on table -->
+          <rect x="120" y="260" width="140" height="90" fill="#1a1a1a" rx="4"/>
+          <rect x="125" y="265" width="130" height="80" fill="#1e2a3a" rx="2"/>
+          <!-- Code on screen -->
+          <text x="135" y="278" font-size="6" fill="#4a9a60" font-family="monospace">const Portfolio = () =&gt; {'{'}</text>
+          <text x="135" y="288" font-size="6" fill="#c87830" font-family="monospace">  return &lt;App /&gt;;</text>
+          <text x="135" y="298" font-size="6" fill="#4a9a60" font-family="monospace">{'}'}</text>
+          <text x="135" y="308" font-size="6" fill="#888" font-family="monospace">// 3 open PRs</text>
+          <rect x="120" y="348" width="140" height="8" fill="#2a2a2a" rx="1"/>
+
+          <!-- Coffee cup -->
+          <rect x="280" y="265" width="28" height="30" fill="#5a3018" rx="3"/>
+          <rect x="278" y="263" width="32" height="5" fill="#7a5030" rx="1"/>
+          <path d="M308 275 Q320 275 320 280 Q320 285 308 285" fill="none" stroke="#7a5030" stroke-width="2"/>
+
+          <!-- Friend NPC -->
+          <ellipse cx="430" cy="275" rx="20" ry="20" fill="#e0a870"/>
+          <rect x="410" y="287" width="40" height="55" fill="#2a4a80" rx="4"/>
+          <text x="430" y="279" text-anchor="middle" font-size="14">🧑‍💻</text>
+          <text x="430" y="360" text-anchor="middle" font-size="10" fill="#c8922a" font-family="Georgia">Rahul (Friend)</text>
+
+          <!-- Hint glows -->
+          <rect x="116" y="256" width="148" height="100" fill="none" stroke="#c8922a" stroke-width="2" rx="5" opacity="0.4" class="hint-glow"/>
+          <rect x="177" y="122" width="164" height="114" fill="none" stroke="#c8922a" stroke-width="2" rx="5" opacity="0.4" class="hint-glow"/>
+        </svg>
+      </div>
+    </div>
+    <div class="info-panel" style="background:#1a1208;border-left-color:#3d2a14">
+      <button class="scene-back" onclick="goToMap()" style="color:#c8922a">← BACK TO MAP</button>
+      <div class="scene-title-block" style="border-color:#3d2a14">
+        <div class="scene-eyebrow">SCENE 03 · PROJECTS</div>
+        <div class="scene-title-text" style="color:#f5e8d0">The Corner Café</div>
+      </div>
+
+      <div class="dialogue-box" style="background:#2a1808;border-color:#3d2a14">
+        <div class="dialogue-speaker">RAHUL — Close Friend</div>
+        <div class="dialogue-text" style="color:#d4c0a0">"He'd sit here for hours, coding. Last time I saw him, he was shipping updates to DevTrack at midnight. Said it had 200 users now. He never stopped building."</div>
+      </div>
+
+      <div class="clue-card" id="clue-devtrack" onclick="openModal('devtrack')" style="background:#2a1808;border-color:rgba(200,130,42,0.3)">
+        <div class="clue-icon">📊</div>
+        <div class="clue-name" style="color:#f5e8d0">DevTrack — Project Alpha</div>
+        <div class="clue-desc" style="color:#a08060">Developer productivity dashboard. Next.js, TypeScript, PostgreSQL, Prisma. 200+ active users. Open source.</div>
+      </div>
+
+      <div class="clue-card" id="clue-edumate" onclick="openModal('edumate')" style="background:#2a1808;border-color:rgba(200,130,42,0.3)">
+        <div class="clue-icon">🎓</div>
+        <div class="clue-name" style="color:#f5e8d0">EduMate — Project Beta</div>
+        <div class="clue-desc" style="color:#a08060">AI-powered study companion. React, Python/FastAPI, OpenAI API. Winner — MLH Hackathon 2023.</div>
+      </div>
+
+      <div class="clue-card" id="clue-oss" onclick="openModal('oss')" style="background:#2a1808;border-color:rgba(200,130,42,0.3)">
+        <div class="clue-icon">🌐</div>
+        <div class="clue-name" style="color:#f5e8d0">Open Source Contributions</div>
+        <div class="clue-desc" style="color:#a08060">42 merged PRs across React ecosystem projects. 180+ GitHub stars across personal repos.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCENE: OFFICE
+══════════════════════════════════ -->
+<div id="scene-office" class="screen">
+  <div class="scene-wrapper">
+    <div class="env-panel">
+      <div class="env-office" style="position:relative;overflow:hidden">
+        <svg viewBox="0 0 500 400" style="width:100%;height:100%;position:absolute;inset:0">
+          <!-- Ceiling -->
+          <rect x="0" y="0" width="500" height="30" fill="#d0dae8"/>
+          <!-- Fluorescent lights -->
+          <rect x="60" y="4" width="120" height="18" fill="white" rx="3" opacity="0.9"/>
+          <rect x="320" y="4" width="120" height="18" fill="white" rx="3" opacity="0.9"/>
+
+          <!-- Floor -->
+          <rect x="0" y="300" width="500" height="100" fill="#ccc5b5"/>
+
+          <!-- Wall -->
+          <rect x="0" y="30" width="500" height="270" fill="#e8eef5"/>
+
+          <!-- Whiteboard -->
+          <rect x="50" y="50" width="220" height="150" fill="white" stroke="#c0c8d8" stroke-width="4" rx="4"/>
+          <text x="160" y="72" text-anchor="middle" font-size="9" fill="#888" font-family="Georgia">System Architecture</text>
+          <!-- Architecture boxes on whiteboard -->
+          <rect x="70" y="80" width="55" height="25" fill="#e0ecff" stroke="#6090d0" stroke-width="1" rx="2"/>
+          <text x="97" y="96" text-anchor="middle" font-size="6.5" fill="#2a50a0">Frontend</text>
+          <rect x="145" y="80" width="55" height="25" fill="#e0f0e0" stroke="#50a060" stroke-width="1" rx="2"/>
+          <text x="172" y="96" text-anchor="middle" font-size="6.5" fill="#205a30">API Layer</text>
+          <rect x="70" y="130" width="55" height="25" fill="#fff0e0" stroke="#d08020" stroke-width="1" rx="2"/>
+          <text x="97" y="146" text-anchor="middle" font-size="6.5" fill="#804010">Database</text>
+          <rect x="145" y="130" width="55" height="25" fill="#ffe8e8" stroke="#d04040" stroke-width="1" rx="2"/>
+          <text x="172" y="146" text-anchor="middle" font-size="6.5" fill="#802020">Auth</text>
+          <line x1="125" y1="92" x2="145" y2="92" stroke="#888" stroke-width="1" marker-end="url(#wb-arr)"/>
+          <line x1="172" y1="105" x2="172" y2="130" stroke="#888" stroke-width="1" marker-end="url(#wb-arr)"/>
+          <line x1="97" y1="105" x2="97" y2="130" stroke="#888" stroke-width="1" marker-end="url(#wb-arr)"/>
+          <defs><marker id="wb-arr" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto"><path d="M0,0 L4,2 L0,4Z" fill="#888"/></marker></defs>
+          <!-- Whiteboard marker note -->
+          <text x="160" y="175" text-anchor="middle" font-size="7" fill="#3a6090" font-style="italic">Akash's design — Sprint 7</text>
+          <!-- Marker shelf -->
+          <rect x="50" y="200" width="220" height="8" fill="#c0c8d8" rx="2"/>
+
+          <!-- Standing desk -->
+          <rect x="280" y="200" width="200" height="12" fill="#a09080" rx="3"/>
+          <rect x="310" y="210" width="15" height="90" fill="#8a7868" rx="2"/>
+          <rect x="455" y="210" width="15" height="90" fill="#8a7868" rx="2"/>
+
+          <!-- Monitor -->
+          <rect x="330" y="140" width="130" height="88" fill="#1a1a2a" rx="4" stroke="#888" stroke-width="2"/>
+          <rect x="335" y="145" width="120" height="78" fill="#1e2a3a" rx="2"/>
+          <!-- Code on monitor -->
+          <text x="345" y="160" font-size="6" fill="#50d080" font-family="monospace">git commit -m "feat: add</text>
+          <text x="345" y="170" font-size="6" fill="#50d080" font-family="monospace">    real-time updates"</text>
+          <text x="345" y="183" font-size="6" fill="#5090d0" font-family="monospace">npm run deploy:prod</text>
+          <text x="345" y="196" font-size="6" fill="#888" font-family="monospace">✓ Build successful</text>
+          <text x="345" y="206" font-size="6" fill="#d0a040" font-family="monospace">▸ Deployed to AWS</text>
+
+          <!-- Monitor stand -->
+          <rect x="385" y="228" width="10" height="16" fill="#888"/>
+          <rect x="370" y="242" width="40" height="4" fill="#888" rx="1"/>
+
+          <!-- ID Badge -->
+          <rect x="55" y="220" width="70" height="45" fill="white" stroke="#6090d0" stroke-width="2" rx="4"/>
+          <rect x="55" y="220" width="70" height="15" fill="#2a5ea8" rx="2"/>
+          <text x="90" y="231" text-anchor="middle" font-size="7" fill="white" font-family="Georgia">TECHCORP</text>
+          <text x="90" y="247" text-anchor="middle" font-size="6.5" fill="#333" font-family="Georgia">Akash Kumar</text>
+          <text x="90" y="257" text-anchor="middle" font-size="6" fill="#666" font-family="Georgia">Sr. Frontend Eng.</text>
+
+          <!-- Colleague NPC -->
+          <ellipse cx="420" cy="295" rx="20" ry="20" fill="#c8a870"/>
+          <rect x="400" y="307" width="40" height="55" fill="#3a3a5a" rx="4"/>
+          <text x="420" y="299" text-anchor="middle" font-size="14">🧑‍💼</text>
+          <text x="420" y="375" text-anchor="middle" font-size="10" fill="#6090a0" font-family="Georgia">Priya (Colleague)</text>
+
+          <!-- Hint glows -->
+          <rect x="48" y="48" width="224" height="154" fill="none" stroke="#c8922a" stroke-width="2" rx="5" opacity="0.4" class="hint-glow"/>
+          <rect x="52" y="217" width="75" height="50" fill="none" stroke="#c8922a" stroke-width="2" rx="5" opacity="0.4" class="hint-glow"/>
+        </svg>
+      </div>
+    </div>
+    <div class="info-panel">
+      <button class="scene-back" onclick="goToMap()">← BACK TO MAP</button>
+      <div class="scene-title-block">
+        <div class="scene-eyebrow">SCENE 04 · WORK EXPERIENCE</div>
+        <div class="scene-title-text">TechCorp Office</div>
+      </div>
+
+      <div class="dialogue-box">
+        <div class="dialogue-speaker">PRIYA — Senior Engineer</div>
+        <div class="dialogue-text">"He was the guy who'd stay late not because he had to, but because he genuinely wanted to get it right. His performance work cut our dashboard load time by 60%. Everyone noticed."</div>
+      </div>
+
+      <div class="clue-card" id="clue-job1" onclick="openModal('job1')">
+        <div class="clue-icon">🏢</div>
+        <div class="clue-name">Employee Badge — TechCorp</div>
+        <div class="clue-desc">Senior Frontend Engineer · 2023–Present. Led redesign of core product dashboard. Managed 2 junior engineers.</div>
+      </div>
+
+      <div class="clue-card" id="clue-job2" onclick="openModal('job2')">
+        <div class="clue-icon">🚀</div>
+        <div class="clue-name">Previous Role — StartupXYZ</div>
+        <div class="clue-desc">Full-Stack Developer · 2022–2023. Built the entire checkout flow from scratch. Product used by 15,000+ users monthly.</div>
+      </div>
+
+      <div class="clue-card" id="clue-whiteboard" onclick="openModal('whiteboard')">
+        <div class="clue-icon">📐</div>
+        <div class="clue-name">Architecture Whiteboard</div>
+        <div class="clue-desc">A system design diagram in Akash's handwriting. Shows deep understanding of scalable frontend architectures and API design.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     SCENE 5: FINAL REVEAL
+══════════════════════════════════ -->
+<div id="scene-final" class="screen">
+  <div class="final-inner">
+    <div class="case-closed-stamp">CASE CLOSED — FOUND</div>
+
+    <div class="final-letter">
+      <div class="letter-lines"></div>
+      <div class="letter-date">March 2025 · Akash's Studio, Bangalore</div>
+      <div class="letter-body">
+        Detective,<br><br>
+        I didn't disappear. I just went heads-down.<br><br>
+        Every late night, every side project, every commit at 2am — it was all building toward something. I'm a developer who genuinely loves the craft. Not just the output, but the process of figuring things out.<br><br>
+        You've seen the evidence. You know what I've built and where I've been. Now you know who I am.<br><br>
+        If you're looking for someone who ships, cares about quality, and never stops learning — the case is closed. Let's talk.
+      </div>
+      <div class="letter-signature">— Akash Kumar</div>
+    </div>
+
+    <div class="profile-card">
+      <div class="profile-header">
+        <div class="profile-avatar">👨‍💻</div>
+        <div>
+          <div class="profile-name">Akash Kumar</div>
+          <div class="profile-role">FULL-STACK DEVELOPER · BANGALORE, INDIA</div>
+        </div>
+        <div class="profile-status">AVAILABLE</div>
+      </div>
+      <div class="profile-body">
+
+        <div class="profile-section">
+          <div class="profile-section-title">About</div>
+          <p style="font-size:14px;color:var(--ink);line-height:1.7">
+            Full-stack developer with 3+ years of experience building products people actually use. Specialising in React, Node.js, and TypeScript. I care about performance, clean architecture, and shipping on time.
+          </p>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title">Experience</div>
+          <div class="exp-item">
+            <div class="exp-role">Senior Frontend Engineer</div>
+            <div class="exp-company">TechCorp · 2023 – Present</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">Led dashboard redesign · 60% perf improvement · Mentored 2 engineers</div>
+          </div>
+          <div class="exp-item">
+            <div class="exp-role">Full-Stack Developer</div>
+            <div class="exp-company">StartupXYZ · 2022 – 2023</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">Built checkout flow from scratch · 15K+ monthly users</div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title">Featured Projects</div>
+          <div class="project-grid">
+            <div class="project-item">
+              <div class="project-name">DevTrack</div>
+              <div class="project-tech">Next.js · TypeScript · PostgreSQL</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">200+ users · Open source</div>
+            </div>
+            <div class="project-item">
+              <div class="project-name">EduMate</div>
+              <div class="project-tech">React · Python · OpenAI</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">MLH Hackathon Winner 2023</div>
+            </div>
+            <div class="project-item">
+              <div class="project-name">AI Study Tool</div>
+              <div class="project-tech">Next.js · FastAPI · NLP</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">Final Year Project · A+</div>
+            </div>
+            <div class="project-item">
+              <div class="project-name">OSS Contributions</div>
+              <div class="project-tech">React Ecosystem</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">42 merged PRs · 180+ stars</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title">Skills</div>
+          <div class="skill-tags">
+            <span class="skill-tag">React</span>
+            <span class="skill-tag">TypeScript</span>
+            <span class="skill-tag">Next.js</span>
+            <span class="skill-tag">Node.js</span>
+            <span class="skill-tag">Python</span>
+            <span class="skill-tag">PostgreSQL</span>
+            <span class="skill-tag">AWS</span>
+            <span class="skill-tag">Docker</span>
+            <span class="skill-tag">GraphQL</span>
+            <span class="skill-tag">Tailwind CSS</span>
+            <span class="skill-tag">Supabase</span>
+            <span class="skill-tag">Prisma</span>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title">Education</div>
+          <div class="exp-item">
+            <div class="exp-role">B.Tech · Computer Science</div>
+            <div class="exp-company">University of Technology · Class of 2022</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:4px">First Division with Distinction · Hackathon Champion</div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="profile-section-title">Contact</div>
+          <div class="contact-links">
+            <a class="contact-link" href="#" onclick="return false">📧 akash@email.com</a>
+            <a class="contact-link" href="#" onclick="return false">🐙 github.com/akash</a>
+            <a class="contact-link" href="#" onclick="return false">💼 LinkedIn</a>
+            <a class="contact-link" href="#" onclick="return false">⬇ Download CV</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <button onclick="goToMap()" style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);background:none;border:1px solid rgba(255,255,255,0.1);padding:8px 20px;cursor:pointer;letter-spacing:0.1em;margin-top:8px;transition:all 0.2s" onmouseover="this.style.color='var(--amber)'" onmouseout="this.style.color='var(--muted)'">
+      ← REVIEW THE INVESTIGATION
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────
+const state = {
+  currentScene: 'intro',
+  collected: new Set(),
+  visited: new Set(),
+};
+
+// ─── CLUE DATA ────────────────────────────────────────────
+const CLUES = {
+  background: {
+    cat: 'BACKGROUND',
+    title: 'Family Photo Album',
+    body: 'Akash Rajan Kumar. Born 1999, Bangalore, Karnataka. Youngest of two children. Father — software engineer at Infosys. Mother — schoolteacher. Grew up surrounded by books and technology. Known in his neighbourhood as "the kid who fixed everyone\'s computers."',
+    tags: ['Bangalore, India', 'Born 1999', 'Tech family background'],
+    nb: 'Grew up in Bangalore. Father in software. Early tech curiosity — built his first website at age 12.'
+  },
+  degree: {
+    cat: 'EDUCATION',
+    title: 'B.Tech Degree Certificate',
+    body: 'Bachelor of Technology in Computer Science Engineering. University of Technology, Bangalore. Class of 2022. CGPA: 8.9/10. First Division with Distinction. Specialisation: Web Technologies & Distributed Systems. Recipient of the Academic Excellence Award 2022.',
+    tags: ['B.Tech CSE', 'CGPA 8.9/10', 'Class of 2022'],
+    nb: 'B.Tech Computer Science, University of Technology. Class of 2022. 8.9 CGPA, First Division with Distinction.'
+  },
+  childhood: {
+    cat: 'BACKGROUND',
+    title: 'First Computer',
+    body: 'A relic of Akash\'s early years. A handwritten sticky note on the monitor: "First website: Minecraft fan page. 2011. Dad thought I was doing homework." Beside it, a stack of borrowed programming books — all worn through at the spine.',
+    tags: ['Self-taught', 'Started age 12', 'Intrinsic motivation'],
+    nb: 'Self-taught from age 12. Built his first website before starting formal education. Intrinsic love of building.'
+  },
+  skills: {
+    cat: 'SKILLS',
+    title: 'Technology Stack',
+    body: 'A locker door covered in sticky notes, each a technology name with a small rating. Core stack: React ★★★★★, TypeScript ★★★★★, Node.js ★★★★★, Python ★★★★, PostgreSQL ★★★★, AWS ★★★★, Docker ★★★★, GraphQL ★★★, Tailwind ★★★★★, Next.js ★★★★★.',
+    tags: ['React', 'TypeScript', 'Node.js', 'Python', 'PostgreSQL', 'AWS', 'Docker'],
+    nb: 'Core skills: React, TypeScript, Next.js, Node.js, Python, PostgreSQL, AWS, Docker. Self-rated and peer-verified.'
+  },
+  hackathon: {
+    cat: 'ACHIEVEMENTS',
+    title: 'Hackathon Championship',
+    body: 'CodeFest 2021 — National Level Hackathon. 1st Place, Best Developer Tool. "Built a real-time code collaboration platform in 24 hours. 217 teams competed. Akash\'s team of 3 was the youngest finalist." — Organiser notes. Also: MLH Hackathon 2023, 1st Place (AI category).',
+    tags: ['CodeFest 2021 — 1st Place', 'MLH 2023 — 1st Place', '217 teams competed'],
+    nb: '2x Hackathon champion. CodeFest 2021 (Developer Tools) and MLH 2023 (AI Category). Youngest finalist at CodeFest.'
+  },
+  thesis: {
+    cat: 'EDUCATION',
+    title: 'Final Year Thesis',
+    body: '"AI-Assisted Learning Platforms: Personalisation at Scale" — Supervisor Dr. Raghavan. Grade: A+. Built a fully functional prototype with 400+ test users. The system used NLP to adapt quiz difficulty and content sequencing in real-time. Nominated for Best University Project 2022.',
+    tags: ['AI / NLP', '400+ test users', 'A+ Grade', 'Best Project nominee'],
+    nb: 'Final Year Thesis: AI personalised learning platform. A+ grade. 400+ users tested it. Built in full, not just a concept.'
+  },
+  devtrack: {
+    cat: 'PROJECTS',
+    title: 'DevTrack',
+    body: 'A developer productivity and task-tracking dashboard built solo. Tech: Next.js 14, TypeScript, PostgreSQL, Prisma ORM, Tailwind CSS, Vercel. Features: real-time updates via WebSockets, GitHub integration, Kanban boards, sprint analytics. 200+ active users. Open source on GitHub (180 stars).',
+    tags: ['Next.js', 'TypeScript', 'PostgreSQL', 'WebSockets', '200+ users'],
+    nb: 'DevTrack: solo-built developer dashboard. 200+ users. Next.js, TypeScript, PostgreSQL. Open source, 180 GitHub stars.'
+  },
+  edumate: {
+    cat: 'PROJECTS',
+    title: 'EduMate',
+    body: 'AI-powered study companion app. Built during MLH Hackathon 2023 (team of 2). Won 1st place in the AI/ML category. Stack: React, Python FastAPI, OpenAI GPT-4 API, Supabase. Features: Smart flashcard generation, essay feedback, Pomodoro tracking, progress analytics. Judges called it "production-ready."',
+    tags: ['React', 'Python/FastAPI', 'OpenAI GPT-4', 'MLH Winner 2023'],
+    nb: 'EduMate: AI study app. Won MLH Hackathon 2023. React + FastAPI + GPT-4. Judges called it production-ready.'
+  },
+  oss: {
+    cat: 'OPEN SOURCE',
+    title: 'Open Source Record',
+    body: 'GitHub profile shows consistent contribution history since 2019. 42 merged pull requests across notable projects including a React component library (15 PRs), a Next.js starter template (200+ GitHub stars), and documentation improvements to several popular npm packages. 700+ total contributions in the last year.',
+    tags: ['42 merged PRs', '700+ contributions/year', 'React ecosystem'],
+    nb: '42 merged PRs in open source. 700+ yearly contributions. Active since 2019. Consistent and disciplined contributor.'
+  },
+  job1: {
+    cat: 'EXPERIENCE',
+    title: 'TechCorp — Senior Engineer',
+    body: 'Senior Frontend Engineer · January 2023 – Present. Led a complete redesign of the core product dashboard, reducing load time by 60% through code splitting and memoisation. Introduced TypeScript across the frontend codebase. Mentored 2 junior engineers. Participated in system design reviews.',
+    tags: ['Senior Frontend Engineer', '2023–Present', '60% perf improvement', 'Mentorship'],
+    nb: 'TechCorp (2023–present): Senior Frontend Engineer. Led dashboard redesign — 60% perf gain. TypeScript migration lead.'
+  },
+  job2: {
+    cat: 'EXPERIENCE',
+    title: 'StartupXYZ — Full-Stack Dev',
+    body: 'Full-Stack Developer · July 2022 – December 2022. First professional role. Built the entire e-commerce checkout flow from zero. Integrated Stripe, implemented OTP auth, and set up CI/CD pipeline on AWS. The product now serves 15,000+ monthly active users. Left on good terms when TechCorp offered.',
+    tags: ['Full-Stack', 'StartupXYZ', 'Jul–Dec 2022', '15K+ monthly users'],
+    nb: 'StartupXYZ (2022): Built entire checkout flow from scratch. Stripe integration, AWS CI/CD. 15K+ monthly users.'
+  },
+  whiteboard: {
+    cat: 'SKILLS',
+    title: 'Architecture Whiteboard',
+    body: 'Akash\'s system design sketch shows a frontend (React/Next.js) talking to a GraphQL API layer, with a PostgreSQL primary DB and Redis cache layer. Authentication via JWT with refresh tokens. CDN in front of static assets. "Designed this in sprint planning — team liked it" — sticky note. Shows strong system-thinking.',
+    tags: ['System Design', 'GraphQL', 'PostgreSQL + Redis', 'CDN architecture'],
+    nb: 'Designed a scalable GraphQL + PostgreSQL + Redis architecture. Strong system-level thinking. Team adopted his design.'
+  },
+};
+
+let currentModalKey = null;
+
+// ─── MODAL ────────────────────────────────────────────────
+function openModal(key) {
+  const clue = CLUES[key];
+  if (!clue) return;
+  currentModalKey = key;
+
+  document.getElementById('modal-cat').textContent = clue.cat;
+  document.getElementById('modal-title').textContent = clue.title;
+  document.getElementById('modal-body').textContent = clue.body;
+
+  const tagsEl = document.getElementById('modal-tags');
+  tagsEl.innerHTML = '';
+  if (clue.tags) {
+    const wrap = document.createElement('div');
+    wrap.className = 'skill-tags';
+    clue.tags.forEach(t => {
+      const span = document.createElement('span');
+      span.className = 'skill-tag';
+      span.textContent = t;
+      wrap.appendChild(span);
+    });
+    tagsEl.appendChild(wrap);
+  }
+
+  const btn = document.getElementById('modal-btn');
+  if (state.collected.has(key)) {
+    btn.textContent = '✓ ADDED TO NOTEBOOK';
+    btn.classList.add('done');
+  } else {
+    btn.textContent = '+ ADD TO NOTEBOOK';
+    btn.classList.remove('done');
+  }
+
+  document.getElementById('clue-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('clue-modal').classList.remove('open');
+  currentModalKey = null;
+}
+
+function addCurrentClue() {
+  if (!currentModalKey) return;
+  const clue = CLUES[currentModalKey];
+  if (!clue) return;
+
+  state.collected.add(currentModalKey);
+
+  // Mark card as collected
+  const card = document.getElementById('clue-' + currentModalKey);
+  if (card) card.classList.add('collected');
+
+  // Update notebook
+  updateNotebook();
+
+  // Update button
+  const btn = document.getElementById('modal-btn');
+  btn.textContent = '✓ ADDED TO NOTEBOOK';
+  btn.classList.add('done');
+
+  closeModal();
+}
+
+function updateNotebook() {
+  const count = state.collected.size;
+  document.getElementById('nb-count').textContent = count;
+
+  const list = document.getElementById('nb-clues-list');
+  list.innerHTML = '';
+
+  if (count === 0) {
+    list.innerHTML = '<p class="nb-empty">No clues collected yet.<br>Go investigate.</p>';
+    return;
+  }
+
+  const grouped = {};
+  state.collected.forEach(key => {
+    const clue = CLUES[key];
+    if (!grouped[clue.cat]) grouped[clue.cat] = [];
+    grouped[clue.cat].push(clue);
+  });
+
+  Object.entries(grouped).forEach(([cat, clues]) => {
+    const catDiv = document.createElement('div');
+    catDiv.style.cssText = 'font-family:"Courier Prime",monospace;font-size:10px;letter-spacing:0.2em;color:var(--amber);margin:14px 0 6px;text-transform:uppercase';
+    catDiv.textContent = cat;
+    list.appendChild(catDiv);
+    clues.forEach(clue => {
+      const div = document.createElement('div');
+      div.className = 'nb-clue';
+      div.innerHTML = `<div class="nb-clue-cat">${clue.title}</div><div class="nb-clue-text">${clue.nb}</div>`;
+      list.appendChild(div);
+    });
+  });
+}
+
+function toggleNotebook() {
+  document.getElementById('notebook-panel').classList.toggle('open');
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────
+function showScreen(id, delay) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('fade-overlay');
+    overlay.classList.add('fading');
+    setTimeout(() => {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const target = document.getElementById(id);
+      if (target) target.classList.add('active');
+      state.currentScene = id.replace('scene-', '');
+      overlay.classList.remove('fading');
+      resolve();
+    }, delay || 400);
+  });
+}
+
+function goToMap() {
+  showScreen('scene-map');
+  document.getElementById('skip-btn').classList.add('visible');
+  document.getElementById('notebook-btn').classList.add('visible');
+}
+
+function goToScene(scene) {
+  showScreen('scene-' + scene);
+  state.visited.add(scene);
+  document.getElementById('pin-' + scene)?.classList.add('visited');
+  updateMapProgress();
+}
+
+function goToFinal() {
+  showScreen('scene-final');
+}
+
+function skipToFinal() {
+  goToFinal();
+}
+
+function updateMapProgress() {
+  const scenes = ['home', 'campus', 'cafe', 'office'];
+  const visitedCount = scenes.filter(s => state.visited.has(s)).length;
+  document.getElementById('map-progress-text').textContent =
+    `${visitedCount} of 4 locations investigated`;
+}
+
+// ─── RAIN EFFECT ──────────────────────────────────────────
+const rainCanvas = document.getElementById('rain-canvas');
+const rctx = rainCanvas.getContext('2d');
+let rainDrops = [];
+
+function initRain() {
+  rainCanvas.width = window.innerWidth;
+  rainCanvas.height = window.innerHeight;
+  rainDrops = [];
+  for (let i = 0; i < 80; i++) {
+    rainDrops.push({
+      x: Math.random() * rainCanvas.width,
+      y: Math.random() * rainCanvas.height,
+      len: 8 + Math.random() * 20,
+      speed: 2 + Math.random() * 5,
+      opacity: 0.1 + Math.random() * 0.3,
+    });
+  }
+}
+
+function drawRain() {
+  rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
+  rctx.strokeStyle = 'rgba(200,180,140,1)';
+  rctx.lineWidth = 0.6;
+  rainDrops.forEach(d => {
+    rctx.globalAlpha = d.opacity;
+    rctx.beginPath();
+    rctx.moveTo(d.x, d.y);
+    rctx.lineTo(d.x + d.len * 0.15, d.y + d.len);
+    rctx.stroke();
+    d.y += d.speed;
+    if (d.y > rainCanvas.height) {
+      d.y = -d.len;
+      d.x = Math.random() * rainCanvas.width;
+    }
+  });
+  requestAnimationFrame(drawRain);
+}
+
+initRain();
+drawRain();
+window.addEventListener('resize', initRain);
+
+// Close modal on backdrop click
+document.getElementById('clue-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+// Close notebook on outside click
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('notebook-panel');
+  const btn = document.getElementById('notebook-btn');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>
