@@ -51,7 +51,9 @@
             This report requires clearance. To proceed, enter the access key.
         </p>
         <p class="text-sm text-gray-400 mb-8 max-w-lg">
-            HINT: The key is the first word of the final instruction in the briefing.
+            🧠 RIDDLE: I connect the frontend to the backend,<br>
+            yet I am neither.<br>
+            What am I?
         </p>
         <div class="flex flex-col items-center space-y-4">
             <input type="password" id="access-key-input" placeholder="ACCESS KEY" class="p-3 rounded-lg bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200">
@@ -59,7 +61,7 @@
                 PROCEED
             </button>
         </div>
-        <p id="error-message" class="text-red-400 mt-4 hidden">INVALID ACCESS KEY. RETRY.</p>
+       <p id="error-message" class="text-red-400 mt-4 hidden">Incorrect. Think simpler.</p>
     </div>
 
     <div class="container mx-auto px-4 sm:px-8 md:px-12 py-12">
@@ -211,7 +213,7 @@
             const accessInput = document.getElementById('access-key-input');
             const accessButton = document.getElementById('access-key-btn');
             const errorMessage = document.getElementById('error-message');
-            const correctKey = 'Only';
+            const correctKey = 'api';
             let scrollBlocked = true;
 
             const unlockAccess = () => {
@@ -221,7 +223,7 @@
             };
 
             const checkKey = () => {
-                if (accessInput.value.trim() === correctKey) {
+                if (accessInput.value.trim().toLowerCase() === correctKey) {
                     unlockAccess();
                 } else {
                     errorMessage.classList.remove('hidden');
